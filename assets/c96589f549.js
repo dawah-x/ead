@@ -18,7 +18,7 @@ sb.onclick=async()=>{const v=em.value.trim();
  try{await fetch(SUBSCRIBE_ACTION,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({email:v})});subm.textContent="ধন্যবাদ! আপনি যুক্ত হয়েছেন।";em.value=""}catch(e){subm.textContent="দুঃখিত, পরে আবার চেষ্টা করুন।"}};
 /* ===== প্রশ্নোত্তর লাইব্রেরি (মূল লেখার লিংক) ===== */
 const QB="https://www.response-to-anti-islam.com/show/";
-let QS=[
+const QS=[
 ["নাস্তিক্যবাদ","সৃষ্টিকর্তার অস্তিত্ব নিয়ে কালাম কসমোলজিক্যাল আর্গুমেন্ট","সৃষ্টিকর্তার-অস্তিত্ব-নিয়ে-কালাম-কসমোলজিক্যাল-আর্গুমেন্ট/402"],
 ["নাস্তিক্যবাদ","আল্লাহর অস্তিত্বঃ কুরআনের আর্গুমেন্ট","আল্লাহর-অস্তিত্বঃ-কুরআনের-আর্গুমেন্ট-/207"],
 ["নাস্তিক্যবাদ","নাস্তিকতার অবাস্তব প্রস্তাবনা","নাস্তিকতার-অবাস্তব-প্রস্তাবনা-/136"],
@@ -148,15 +148,12 @@ let QS=[
 ["বিশ্বাস","মুসলিমরা তওবা করলে কি সব অপরাধই ক্ষমা হয়ে যায়?","https://www.insightzonebd.com/মুসলিমরা-তওবা-করলে-কি-সব-অপরাধই-ক্ষমা-হয়ে-যায়"],
 ["নৈতিকতা","ভিডিও: চারজন সাক্ষী না থাকলে কি জিনার বিচার করা যায় না?","https://www.youtube.com/watch?v=-Q5qDzfik28"],
 ["নবুয়ত","মহানবী ﷺ-এর একাধিক বিয়ে নিয়ে অভিযোগের জবাব","https://islamicauthors.com/article/157"]];
-let QC=["সব",...new Set(QS.map(x=>x[0]))];let qcur="সব";
+const QC=["সব",...new Set(QS.map(x=>x[0]))];let qcur="সব";
 let qshow=20;
-const escHTML=v=>String(v).replace(/[০-৯]/g,d=>String("০১২৩৪৫৬৭৮৯".indexOf(d))).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\"","&quot;");
-const qSearchCache=new WeakMap();const normalizeSearchText=v=>String(v||"").normalize("NFC").toLowerCase().replace(/[০-৯]/g,d=>"0123456789"["০১২৩৪৫৬৭৮৯".indexOf(d)]).trim().replace(/\s+/g," ");const qSearchText=row=>{let v=qSearchCache.get(row);if(v===undefined){v=normalizeSearchText(row[0]+" "+row[1]);qSearchCache.set(row,v)}return v};const fSearchCache=new WeakMap();const fSearchText=row=>{let v=fSearchCache.get(row);if(v===undefined){v=normalizeSearchText(row[0]+" "+row[1]);fSearchCache.set(row,v)}return v};
-function qdraw(){const t=normalizeSearchText(qsearch.value);
- qchips.innerHTML=QC.map(c=>`<button class="chip${c===qcur?" on":""}" data-c="${escHTML(c)}">${escHTML(c)}</button>`).join("");
- const terms=t?t.split(" "):[];const l=QS.filter(x=>(qcur==="সব"||x[0]===qcur)&&(!terms.length||terms.every(term=>qSearchText(x).includes(term))));
- const qstat=document.getElementById("qstat");if(qstat)qstat.textContent=window.DAWAH_QUESTION_STATUS||"প্রাথমিক বাছাইকৃত ফলাফল";
- qgrid.innerHTML=l.length?l.slice(0,qshow).map(x=>`<a class="qcard" href="${escHTML(x[2].startsWith("http")?x[2]:encodeURI(QB+x[2]))}" target="_blank" rel="noopener"><small>${escHTML(x[0])}</small><b>${escHTML(x[1])}</b><span>${x[2].startsWith("http")?new URL(x[2]).hostname.replace("www.",""):"response-to-anti-islam.com"} ›</span></a>`).join(""):'<p class="qnote">কিছু পাওয়া যায়নি।</p>';const moreReady=typeof window.DAWAH_QUESTION_READY_FOR==="function"&&window.DAWAH_QUESTION_READY_FOR(qcur);qmore.style.display=l.length>qshow||!moreReady?"":"none";if(moreReady&&l.length>qshow)qmore.innerHTML=`আরও দেখুন <span class="qmore-count">${l.length-qshow}</span>`;else qmore.textContent="আরও দেখুন"}
+function qdraw(){const t=qsearch.value.trim();
+ qchips.innerHTML=QC.map(c=>`<button class="chip${c===qcur?" on":""}" data-c="${c}">${c}</button>`).join("");
+ const l=QS.filter(x=>(qcur==="সব"||x[0]===qcur)&&x[1].includes(t));
+ qgrid.innerHTML=l.length?l.slice(0,qshow).map(x=>`<a class="qcard" href="${x[2].startsWith("http")?x[2]:encodeURI(QB+x[2])}" target="_blank" rel="noopener"><small>${x[0]}</small><b>${x[1]}</b><span>${x[2].startsWith("http")?new URL(x[2]).hostname.replace("www.",""):"response-to-anti-islam.com"} ›</span></a>`).join(""):'<p class="qnote">কিছু পাওয়া যায়নি।</p>';qmore.style.display=l.length>qshow?"":"none";qmore.textContent="আরও দেখুন ("+(l.length-qshow)+")"}
 qchips.addEventListener("click",e=>{const c=e.target.dataset.c;if(c){qcur=c;qshow=20;qdraw()}});
 let qDrawTimer;qsearch.addEventListener("input",()=>{qshow=20;clearTimeout(qDrawTimer);qDrawTimer=setTimeout(qdraw,110)});qsearch.addEventListener("keydown",e=>{if(e.key==="Enter"){clearTimeout(qDrawTimer);qdraw()}});qmore.onclick=()=>{qshow+=20;qdraw()};qdraw();
 /* ===== ফতোয়া: [বিষয়, প্রশ্ন, মূল লিংক] — নতুন ফতোয়া এই তালিকায় যোগ করুন ===== */
@@ -563,11 +560,11 @@ const FT=[
 ["আক্বীদা","দু‘আ করলে ফেরেশতারা দু‘আকারীর জন্য দু‘আ করেন—ছহীহ হাদীছ আছে কি?","441"]
 ].map(x=>[x[0],x[1],AI+x[2]]);
 let fshow=20,fcur="সব";const FC=["সব",...new Set(FT.map(x=>x[0]))];
-function fdraw(){const t=normalizeSearchText(fsearch.value);
- fchips.innerHTML=FC.map(c=>`<button class="chip${c===fcur?" on":""}" data-c="${escHTML(c)}">${escHTML(c)}</button>`).join("");
+function fdraw(){const t=fsearch.value.trim();
+ fchips.innerHTML=FC.map(c=>`<button class="chip${c===fcur?" on":""}" data-c="${c}">${c}</button>`).join("");
  const l=FT.filter(x=>(fcur==="সব"||x[0]===fcur)&&x[1].includes(t));
- fgrid.innerHTML=l.length?l.slice(0,fshow).map(x=>`<a class="qcard" href="${escHTML(x[2])}" target="_blank" rel="noopener"><small>${escHTML(x[0])}</small><b>${escHTML(x[1])}</b><span>${escHTML(new URL(x[2]).hostname.replace("www.",""))} ›</span></a>`).join(""):'<p class="qnote">ফতোয়াগুলো শীঘ্রই যোগ করা হবে। আপাতত মূল সাইটে দেখুন।</p>';
- const moreReady=typeof window.DAWAH_FATWA_READY_FOR==="function"&&window.DAWAH_FATWA_READY_FOR(fcur);fmore.style.display=l.length>fshow||!moreReady?"":"none";if(moreReady&&l.length>fshow)fmore.innerHTML=`আরও দেখুন <span class="qmore-count">${l.length-fshow}</span>`;else fmore.textContent="আরও দেখুন"}
+ fgrid.innerHTML=l.length?l.slice(0,fshow).map(x=>`<a class="qcard" href="${x[2]}" target="_blank" rel="noopener"><small>${x[0]}</small><b>${x[1]}</b><span>${new URL(x[2]).hostname.replace("www.","")} ›</span></a>`).join(""):'<p class="qnote">ফতোয়াগুলো শীঘ্রই যোগ করা হবে। আপাতত মূল সাইটে দেখুন।</p>';
+ fmore.style.display=l.length>fshow?"":"none";fmore.textContent="আরও দেখুন ("+(l.length-fshow)+")"}
 fchips.addEventListener("click",e=>{const c=e.target.dataset.c;if(c){fcur=c;fshow=20;fdraw()}});
 let fDrawTimer;fsearch.addEventListener("input",()=>{fshow=20;clearTimeout(fDrawTimer);fDrawTimer=setTimeout(fdraw,110)});fsearch.addEventListener("keydown",e=>{if(e.key==="Enter"){clearTimeout(fDrawTimer);fdraw()}});fmore.onclick=()=>{fshow+=20;fdraw()};fdraw();
 /* ===== প্রশ্ন পাঠানো ===== */
@@ -578,7 +575,7 @@ askbtn.onclick=async()=>{
  if(q.length<5){askm.textContent="অনুগ্রহ করে আপনার প্রশ্ন লিখুন।";return}
  const body=new URLSearchParams({"form-name":"question",name:an.value.trim(),contact:ac.value.trim(),topic:at.value,question:q,"bot-field":(document.getElementById("abot")||{}).value||""});
  askbtn.disabled=true;askm.textContent="পাঠানো হচ্ছে...";
- try{const r=await fetch("/__forms.html",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body.toString()});
+ try{const r=await fetch("__forms.html",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body.toString()});
   if(!r.ok)throw 0;
   askm.textContent="ধন্যবাদ! আপনার প্রশ্ন আমাদের কাছে পৌঁছেছে। ইন শা আল্লাহ শীঘ্রই উত্তর দেওয়া হবে।";aq.value=""}
  catch(e){askm.replaceChildren("দুঃখিত, এই মুহূর্তে পাঠানো যায়নি। আবার চেষ্টা করুন অথবা ",Object.assign(document.createElement("a"),{href:MESSENGER,target:"_blank",rel:"noopener noreferrer",textContent:"Messenger-এ লিখুন",style:"color:var(--gold);text-decoration:underline"}),"।")}
