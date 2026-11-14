@@ -22,7 +22,7 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;backgroun
 .dot{width:12px;height:12px;border-radius:50%;background:#ff2d2d;box-shadow:0 0 0 3px rgba(255,45,45,.3)}
 .burger{display:none;background:none;border:0;color:var(--text);font-size:28px;cursor:pointer}
 /* hero */
-.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg) url("../img/53bda37a05.jpg") right center/auto 100% no-repeat}
+.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg) url("../img/53bda37a05.jpg") right center/auto 100% no-repeat;background:var(--bg) image-set(url("../img/887065ba37.webp") type("image/webp"),url("../img/53bda37a05.jpg") type("image/jpeg")) right center/auto 100% no-repeat}
 .hero::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--bg) 8%,rgba(7,12,20,.55) 50%,transparent 80%)}
 .hero .wrap{position:relative;padding-top:40px;padding-bottom:44px}
 .brandline{letter-spacing:5px;font-weight:600;font-size:14px;line-height:1.5}
@@ -81,10 +81,6 @@ footer{border-top:1px solid var(--line);padding:30px 0 20px;font-size:14px}
 .fg .word{height:64px;width:auto}
 .tags{color:var(--muted);margin-top:14px;font-size:13px}
 .soc{display:flex;gap:12px}.soc .ic{width:30px;height:30px}
-.sub{display:flex}
-.sub input{flex:1;min-width:0;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px 0 0 8px;color:var(--text);padding:10px 14px;font:inherit}
-.sub button{background:var(--gold);border:0;border-radius:0 8px 8px 0;padding:0 18px;font:inherit;font-weight:700;cursor:pointer;color:#1a1300}
-#subm{font-size:13px;color:var(--gold2);margin-top:8px;min-height:20px}
 .copy{text-align:right;color:var(--muted);font-size:12px;margin-top:16px}
 .btns{gap:16px}
 .btn{position:relative;overflow:hidden;min-height:68px;padding:12px 18px 12px 14px;border-radius:18px;border:1.5px solid rgba(245,184,28,.9);gap:14px;transition:transform .25s,box-shadow .25s,background .25s}
@@ -243,9 +239,9 @@ header.top .word{animation:logoBreathe 6s ease-in-out infinite}
 .title h2::before,.title h2::after{transform-origin:center;animation:rulePulse 4.2s ease-in-out infinite alternate}
 .title h2::after{animation-delay:.6s}
 @keyframes rulePulse{from{transform:scaleX(.55);opacity:.55}to{transform:scaleX(1);opacity:1}}
-.btn,.askbtn,.qmore,.sub button,.joinbtn{position:relative;overflow:hidden;isolation:isolate}
-.btn::after,.askbtn::after,.qmore::after,.sub button::after,.joinbtn::after{content:"";position:absolute;z-index:-1;top:-80%;left:-55%;width:38%;height:260%;transform:translateX(-180%) rotate(24deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.36),transparent);transition:transform .72s cubic-bezier(.18,.7,.25,1);pointer-events:none}
-.btn:hover::after,.askbtn:hover::after,.qmore:hover::after,.sub button:hover::after,.joinbtn:hover::after{transform:translateX(650%) rotate(24deg)}
+.btn,.askbtn,.wabtn,.qmore,.joinbtn,.sbtn{position:relative;overflow:hidden;isolation:isolate}
+.btn::after,.askbtn::after,.wabtn::after,.qmore::after,.joinbtn::after,.sbtn::after{content:"";position:absolute;z-index:-1;top:-80%;left:-55%;width:38%;height:260%;transform:translateX(-180%) rotate(24deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.36),transparent);transition:transform .72s cubic-bezier(.18,.7,.25,1);pointer-events:none}
+.btn:hover::after,.askbtn:hover::after,.wabtn:hover::after,.qmore:hover::after,.joinbtn:hover::after,.sbtn:hover::after{transform:translateX(650%) rotate(24deg)}
 .card,.qcard,.ccard,.library-link{transform-style:preserve-3d;backface-visibility:hidden}
 .card:hover{transform:perspective(900px) translateY(-7px) rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg)) scale(1.015)}
 .qcard:hover,.ccard:hover,.library-link:hover{transform:perspective(900px) translateY(-6px) rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg)) scale(1.012)}
@@ -309,8 +305,10 @@ section{animation:sectionIn .55s cubic-bezier(.2,.75,.25,1) both}
 .library-stat strong{color:#f1f4f5;font-size:12px;font-variant-numeric:tabular-nums}
 .library-note{margin:10px 1px 0!important;color:var(--muted);font-size:11px;line-height:1.55;text-align:left}
 input:focus,textarea:focus,select:focus{outline:2px solid rgba(246,196,83,.55);outline-offset:2px}
-.askbtn,.qmore,.sub button{transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+.askbtn,.qmore,.wabtn,.sbtn{transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
 .askbtn:hover,.qmore:hover{transform:translateY(-2px);box-shadow:0 9px 24px rgba(246,196,83,.2)}
+.wabtn:hover{box-shadow:0 10px 26px rgba(37,211,102,.3)}
+.sbtn:hover{box-shadow:0 8px 20px rgba(0,0,0,.35)}
 footer{background:rgba(0,0,0,.13)}
 @media(max-width:700px){.library-total{min-width:72px;padding:8px 10px}.library-links{gap:10px}.library-link{min-height:88px;padding:13px}.library-count{min-width:52px}}
 @media(max-width:560px){.library-links{grid-template-columns:1fr}.library-panel{padding:16px}.library-heading{gap:10px}.library-heading p{margin-top:4px}.library-total{min-width:64px;padding:7px 8px}.library-total strong{font-size:18px}.library-link{min-height:82px;padding:12px}.library-link b{font-size:14px}.library-count b{font-size:18px}.library-new{font-size:9px;padding:4px 6px}.library-link .go{display:none}.library-summary{gap:6px}.library-stat{font-size:10px;padding:5px 8px}}
@@ -499,3 +497,26 @@ a,button,input,select,textarea,.chip,.qcard{touch-action:manipulation;-webkit-ta
  .firefly:nth-child(2n),.sky-star:nth-child(3n){display:none}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.sub-follow{display:flex;flex-wrap:wrap;gap:10px;margin-top:2px}
+.sbtn{display:inline-flex;align-items:center;gap:9px;padding:10px 15px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.sbtn:hover,.sbtn:focus-visible{transform:translateY(-2px);border-color:var(--gold);background:rgba(255,255,255,.09)}
+.sbtn .ic{width:22px;height:22px}
+.sbtn-wa{border-color:rgba(37,211,102,.45);color:#8ff0b3}
+.sbtn-wa:hover,.sbtn-wa:focus-visible{border-color:#25d366;background:rgba(37,211,102,.1)}
+.sbtn-ms{border-color:rgba(168,85,247,.45);color:#d8b4fe}
+.sbtn-ms:hover,.sbtn-ms:focus-visible{border-color:#a855f7;background:rgba(168,85,247,.12)}
+.sbtn-fb{border-color:rgba(96,153,255,.45);color:#a8c7ff}
+.sbtn-fb:hover,.sbtn-fb:focus-visible{border-color:#6099ff;background:rgba(96,153,255,.12)}
+.sub-note{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.6}
+.wabtn{margin-top:18px;margin-left:12px;background:linear-gradient(#31e981,#1fb457);color:#06260f;border:0;border-radius:10px;padding:12px 26px;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 10px 26px rgba(37,211,102,.22)}
+.wabtn:hover,.wabtn:focus-visible{filter:brightness(1.05)}
+.wa-float{position:fixed;right:18px;bottom:18px;z-index:999;display:flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:50%;background:linear-gradient(160deg,#31e981,#1fb457);box-shadow:0 12px 30px rgba(0,0,0,.4),0 0 0 4px rgba(37,211,102,.18);transition:transform .2s ease,box-shadow .2s ease}
+.wa-float:hover,.wa-float:focus-visible{transform:scale(1.1);box-shadow:0 14px 34px rgba(0,0,0,.5),0 0 0 6px rgba(37,211,102,.28)}
+.wa-float svg{width:32px;height:32px}
+@media print{.wa-float{display:none !important}}
+@media(max-width:560px){.wa-float{width:52px;height:52px;right:14px;bottom:14px}.wabtn{margin-left:0;margin-top:10px}}
+.wa-tip{position:fixed;right:88px;bottom:31px;z-index:999;background:#08151a;color:#d8ffe4;border:1px solid rgba(37,211,102,.45);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;box-shadow:0 8px 22px rgba(0,0,0,.4);opacity:0;transform:translateX(8px);pointer-events:none;transition:opacity .25s ease,transform .25s ease;white-space:nowrap}
+.wa-float:hover + .wa-tip,.wa-float:focus-visible + .wa-tip{opacity:1;transform:translateX(0)}
+@media(max-width:560px){.wa-tip{display:none}}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.askbtn:disabled,.wabtn:disabled{opacity:.7;cursor:wait}
