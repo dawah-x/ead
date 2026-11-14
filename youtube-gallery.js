@@ -113,7 +113,7 @@
   pageInput?.addEventListener('keydown',event=>{if(event.key==='Enter')goToPage(pageInput.value,true);});
 
   const catalogUrl=new URL('youtube-videos.json',new URL('.',scriptUrl));
-  fetch(catalogUrl.href,{cache:'no-cache'})
+  fetch(catalogUrl.href)
     .then(response=>{if(!response.ok)throw new Error(`Catalogue request failed (${response.status})`);return response.json();})
     .then(data=>{
       if(!Array.isArray(data)||!data.length)throw new Error('Catalogue is empty or malformed');
