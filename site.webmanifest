@@ -1,0 +1,15 @@
+{
+  "name": "DAWAH X — সত্য জানুন, সত্যের পথে চলুন",
+  "short_name": "DAWAH X",
+  "description": "কুরআন ও সুন্নাহর আলোকে ইসলামের শিক্ষা, দাওয়াহ এবং সম্মানজনক প্রশ্নোত্তর।",
+  "lang": "bn",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#08151a",
+  "theme_color": "#08151a",
+  "icons": [
+    { "src": "img/db1cf75613.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/3c3b403dc7.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

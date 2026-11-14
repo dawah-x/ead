@@ -10,14 +10,22 @@ Live at **https://dawah-x.github.io/ead/** — served by **GitHub Pages** from t
 - **Question delivery via Messenger** — no backend required; see below
 - Long‑lived cache for hashed assets via GitHub Pages' default caching (assets are content‑hashed so renamed files bust the cache)
 
-## How questions reach your Messenger
-There is no server. When a visitor presses **প্রশ্ন পাঠান (Send question)** on any page:
+## How questions reach you
+There is no server. On any page, visitors can reach the DAWAH X team two ways:
 
+**Option 1 — Messenger ("প্রশ্ন পাঠান")**
 1. The question — plus optional name, contact and topic — is formatted as a ready‑to‑send message.
 2. That message is **copied to the visitor's clipboard** and **Messenger opened at `https://m.me/61595349861689`** in a new tab.
 3. The visitor presses **Paste** and **Send** in Messenger; the question arrives in your DAWAH X Messenger chat.
 
-The visitor's name/contact/topic are included in the copied message, so pasted questions carry everything you need. If the browser blocks clipboard access, the page shows the full message in a copyable box instead. Automatic delivery without the visitor pressing Send would require Meta's Messenger API and a backend — not used here to keep the site fully static.
+If the browser blocks clipboard access, the page shows the full message in a copyable box instead.
+
+**Option 2 — WhatsApp ("WhatsApp-এ পাঠান")**
+The button opens `https://wa.me/8801783543026` in a new tab with the same composed question **pre-filled in the chat box**. The visitor just presses Send in WhatsApp — no clipboard step needed.
+
+WhatsApp (`https://wa.me/8801783543026`) also appears as a contact card on the যোগাযোগ section, a footer icon, the footer follow buttons, and a floating action button on every page.
+
+Automatic delivery without any visitor action would require Meta's Messenger API / WhatsApp Cloud API and a backend — deliberately not used to keep the site fully static.
 
 ## Run locally
 ```bash
@@ -29,6 +37,8 @@ Then open http://localhost:8889 (any static server works).
 - `*.html` — one file per page (index, about, services, questions, fatwa, videos, ask, contact); `404.html` is the custom not‑found page GitHub Pages serves automatically
 - `robots.txt`, `sitemap.xml` — crawler hints (sitemap lists the 8 public pages)
 - `assets/` — shared CSS and JS used by every page (content‑hashed names; rename to the file's new SHA‑1 prefix after editing and update references)
-- `img/` — shared images extracted from the pages
+- `site.webmanifest`, `img/….png` icons — installable PWA metadata (Android/Chrome "Add to Home Screen")
+- `scripts/check_links.py` — network‑free static checks (internal links, in‑page fragments, JSON‑LD, sitemap, manifest); runs in CI via `.github/workflows/quality.yml`
+- `img/` — shared images extracted from the pages; hero is served as WebP with a JPEG fallback via `image-set()`
 - `*-catalog-part-*.js`, `youtube-videos.json` — library and video data, loaded on demand
 - `site-notes.md`, `youtube-setup.md` — original notes on the library and video catalogue

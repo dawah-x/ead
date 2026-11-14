@@ -5,13 +5,17 @@ Static site, no build step; published by **GitHub Pages** from the `main` branch
 
 ## Key directories / files
 - `assets/<hash>.css` — the single shared stylesheet. The last block ("Smoothness pass") holds performance overrides; keep heavy effects (full-page animated backgrounds, large blurs, mix-blend overlays, blanket `will-change`, backdrop-filter on mobile) out.
-- `assets/<hash>.js` — shared scripts, minified with terser. The large app script has three variants (default, fatwa page, questions page); the small effects script is shared by all pages. Top-level names in the app script are NOT mangled (inline scripts rely on `FC`, `FT`, `fdraw`, `qdraw`, `qshow`, `fshow`, …).
+- `assets/<hash>.js` — shared scripts, minified with terser. One app script is shared by **all eight pages** (the former page-specific copies `96b3c6b145.js` / `fd074a3ac1.js` were unified into a single file); the small effects script is shared by all pages. Top-level names in the app script are NOT mangled (inline scripts rely on `FC`, `FT`, `fdraw`, `qdraw`, `qshow`, `fshow`, …).
 - `img/<hash>.*` — images that were originally inlined as base64.
 - `youtube-gallery.js` — renders the static 5,000‑video catalogue; loads `youtube-videos.json` on demand (no `no-cache`; normal HTTP caching applies).
 - `404.html`, `robots.txt`, `sitemap.xml` — custom GitHub Pages 404, crawler rules and sitemap (sitemap URLs point at the GitHub Pages project URL).
 
-## How questions reach Messenger (no backend)
-The ask form does not submit anywhere. On "প্রশ্ন পাঠান", the app script formats the question plus optional name/contact/topic, **copies it to the clipboard**, and opens `https://m.me/61595349861689`. The visitor pastes and sends in Messenger. If clipboard access fails, the page shows the message in a copyable `<textarea>`. There is deliberately no server, no database and no `__forms.html` — keep it that way unless a backend is introduced.
+## How questions reach you (no backend)
+The ask form does not submit anywhere. Two buttons, same composed message (question + optional name/contact/topic):
+- **"প্রশ্ন পাঠান"** — **copies it to the clipboard** and opens `https://m.me/61595349861689`; the visitor pastes and sends in Messenger. If clipboard access fails, the page shows the message in a copyable `<textarea>`.
+- **"WhatsApp-এ পাঠান"** (`#wabtn`) — opens `https://wa.me/8801783543026?text=<url-encoded message>`; the question arrives pre-filled in WhatsApp, visitor just presses Send.
+
+`wa.me/8801783543026` is the owner's WhatsApp (same number as the `tel:` link, `+8801783543026`). It also appears as the `.ccard-wa` contact card, a footer icon, the footer follow buttons, and a `.wa-float` floating button. There is deliberately no server, no database and no `__forms.html` — keep it that way unless a backend is introduced.
 
 ## Conventions / non-obvious decisions
 - Asset names are content hashes (SHA‑1, first 10 hex chars). If you edit a file in `assets/` or `img/`, rename it (new hash) and update references in every `.html`, otherwise browsers keep the old copy.
@@ -20,3 +24,4 @@ The ask form does not submit anywhere. On "প্রশ্ন পাঠান", 
 - UI copy is Bengali; keep it that way.
 - Element globals (e.g. `askbtn`, `aq`, `askm`) are referenced by id directly in the app script.
 - `netlify.toml` and Netlify Forms were removed — the site does not use Netlify.
+- Run `python3 scripts/check_links.py` before pushing; the same check runs in GitHub Actions (`.github/workflows/quality.yml`) on pushes to `main` and on PRs. The footer subscribe placeholder was replaced with honest follow buttons (WhatsApp / Messenger / Facebook Page) — do not re-add a fake subscribe form without a real backend.
