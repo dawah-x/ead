@@ -6,6 +6,10 @@
     {
       "name": "Check Site Links",
       "command": "python3 scripts/check_links.py"
+    },
+    {
+      "name": "Check App Scripts",
+      "command": "node --check app/app.js && node --check sw.js"
     }
   ],
   "buildSteps": [],

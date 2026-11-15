@@ -3,9 +3,12 @@
 ## Architecture
 Static site, no build step; published by **GitHub Pages** from the `main` branch, repository root (live at `https://dawah-x.github.io/ead/`). Every page file contains the same full markup (all sections); `<body data-page="…">` and CSS decide which section is visible. Treat the pages as copies of one template — a markup change usually has to be applied to all eight `.html` files.
 
+The site is also an installable PWA. `app/app.css` and `app/app.js` add a mobile bottom tab bar, a **সব বিভাগ** bottom sheet, the install flow and status toasts on screens ≤900px; desktop keeps the normal header nav. `sw.js` precaches the pages, the app shell and the hashed assets, and `offline.html` is the navigation fallback. The same tab-bar/sheet markup is duplicated in all eight pages, so update every page together.
+
 ## Key directories / files
 - `assets/<hash>.css` — the single shared stylesheet. The last block ("Smoothness pass") holds performance overrides; keep heavy effects (full-page animated backgrounds, large blurs, mix-blend overlays, blanket `will-change`, backdrop-filter on mobile) out.
-- `assets/<hash>.js` — shared scripts, minified with terser. One app script is shared by **all eight pages** (the former page-specific copies `96b3c6b145.js` / `fd074a3ac1.js` were unified into a single file); the small effects script is shared by all pages. Top-level names in the app script are NOT mangled (inline scripts rely on `FC`, `FT`, `fdraw`, `qdraw`, `qshow`, `fshow`, …).
+- `assets/<hash>.js` — shared scripts, minified with terser. One app script is shared by **all eight pages** (the former page-specific copies `96b3c6b145.js` / `fd074a3ac1.js` were unified into a single file); the small effects script is shared by all pages. Top-level names in the app script are NOT mangled (inline scripts rely on `FC`, `FT`, `fdraw`, `qdraw`, `qshow`, `fshow`, …). The catalog arrays `QS`/`QC`/`FT`/`FC` must stay `var` (not `const`) because the inline catalog scripts on `questions.html` and `fatwa.html` reassign them.
+- `app/app.css`, `app/app.js` — mobile app shell and install/offline UI; `sw.js` + `offline.html` — service worker and offline fallback
 - `img/<hash>.*` — images that were originally inlined as base64.
 - `youtube-gallery.js` — renders the static 5,000‑video catalogue; loads `youtube-videos.json` on demand (no `no-cache`; normal HTTP caching applies).
 - `404.html`, `robots.txt`, `sitemap.xml` — custom GitHub Pages 404, crawler rules and sitemap (sitemap URLs point at the GitHub Pages project URL).

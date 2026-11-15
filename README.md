@@ -33,11 +33,23 @@ python3 -m http.server 8889
 ```
 Then open http://localhost:8889 (any static server works).
 
+## Installable mobile app (PWA)
+The site is also an installable app — open it in a mobile browser and use **Add to Home Screen** (or the **ইনস্টল** button inside the **আরও** sheet). Installed, it opens full-screen without browser chrome and keeps working offline.
+
+- `app/app.css`, `app/app.js` — mobile app shell: bottom tab bar (হোম · প্রশ্নোত্তর · ফতোয়া · ভিডিও · আরও), a "সব বিভাগ" bottom sheet, install flow and offline/update toasts. Desktop layout is unchanged.
+- `sw.js` — service worker: network-first for pages and app files, stale-while-revalidate for hashed assets, and a cached fallback for offline navigation. The large `*-catalog-part-*.js` files and `youtube-videos.json` are fetched normally and are not precached.
+- `offline.html` — offline fallback page, cached by the service worker.
+- `app/icon-maskable-*.png` — maskable launcher icons referenced by `site.webmanifest`.
+
+The shell is progressive: without JavaScript the pages and their normal navigation still work.
+
 ## Structure
 - `*.html` — one file per page (index, about, services, questions, fatwa, videos, ask, contact); `404.html` is the custom not‑found page GitHub Pages serves automatically
 - `robots.txt`, `sitemap.xml` — crawler hints (sitemap lists the 8 public pages)
 - `assets/` — shared CSS and JS used by every page (content‑hashed names; rename to the file's new SHA‑1 prefix after editing and update references)
-- `site.webmanifest`, `img/….png` icons — installable PWA metadata (Android/Chrome "Add to Home Screen")
+- `app/` — mobile app shell (tab bar, bottom sheet, install UI, maskable icons)
+- `sw.js`, `offline.html` — offline caching and fallback for the installable app
+- `site.webmanifest`, `img/….png` icons — installable PWA metadata (Android/Chrome "Add to Home Screen"), icon set and app shortcuts
 - `scripts/check_links.py` — network‑free static checks (internal links, in‑page fragments, JSON‑LD, sitemap, manifest); runs in CI via `.github/workflows/quality.yml`
 - `img/` — shared images extracted from the pages; hero is served as WebP with a JPEG fallback via `image-set()`
 - `*-catalog-part-*.js`, `youtube-videos.json` — library and video data, loaded on demand
