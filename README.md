@@ -41,13 +41,16 @@ The site is also an installable app — open it in a mobile browser and use **Ad
 - `offline.html` — offline fallback page, cached by the service worker.
 - `app/icon-maskable-*.png` — maskable launcher icons referenced by `site.webmanifest`.
 
+## In-site answers
+Q&A and fatwa cards open `answers.html` instead of leaving the site. The reader looks up the exact question title in `app/answers.json`, renders the Bengali summary, sections, references, source credit and disclaimer, and offers share/copy plus a pre-filled WhatsApp question. Curated answers live under `qa` and `fatwa`; shortened fatwa titles used by the featured list map to the full originals through `aliases`. When a title has no written answer yet, the page says so honestly, keeps the visitor on-site and offers WhatsApp follow-up (`app/answers.js`). `answers.html` is marked `noindex, follow` and is not part of the eight-page shell template.
+
 The shell is progressive: without JavaScript the pages and their normal navigation still work.
 
 ## Structure
-- `*.html` — one file per page (index, about, services, questions, fatwa, videos, ask, contact); `404.html` is the custom not‑found page GitHub Pages serves automatically
+- `*.html` — one file per page (index, about, services, questions, fatwa, videos, ask, contact); `answers.html` is the in-site answer reader; `404.html` is the custom not‑found page GitHub Pages serves automatically
 - `robots.txt`, `sitemap.xml` — crawler hints (sitemap lists the 8 public pages)
 - `assets/` — shared CSS and JS used by every page (content‑hashed names; rename to the file's new SHA‑1 prefix after editing and update references)
-- `app/` — mobile app shell (tab bar, bottom sheet, install UI, maskable icons)
+- `app/` — mobile app shell (tab bar, bottom sheet, install UI, maskable icons), answer reader script (`answers.js`) and Bengali answer library (`answers.json`)
 - `sw.js`, `offline.html` — offline caching and fallback for the installable app
 - `site.webmanifest`, `img/….png` icons — installable PWA metadata (Android/Chrome "Add to Home Screen"), icon set and app shortcuts
 - `scripts/check_links.py` — network‑free static checks (internal links, in‑page fragments, JSON‑LD, sitemap, manifest); runs in CI via `.github/workflows/quality.yml`

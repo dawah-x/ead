@@ -1,4 +1,4 @@
-const CACHE_VERSION = "dawahx-app-v1";
+const CACHE_VERSION = "dawahx-app-v3";
 const CACHE_PREFIX = "dawahx-app-";
 
 const PRECACHE = [
@@ -12,11 +12,14 @@ const PRECACHE = [
   "./ask.html",
   "./contact.html",
   "./offline.html",
+  "./answers.html",
   "./assets/873538a7f4.css",
   "./assets/4a4032d683.js",
-  "./assets/153d46abe6.js",
+  "./assets/b369646433.js",
   "./app/app.css",
   "./app/app.js",
+  "./app/answers.js",
+  "./app/answers.json",
   "./site.webmanifest",
   "./favicon.svg",
   "./img/994f114bee.webp",

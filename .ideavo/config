@@ -9,7 +9,7 @@
     },
     {
       "name": "Check App Scripts",
-      "command": "node --check app/app.js && node --check sw.js"
+      "command": "node --check app/app.js && node --check app/answers.js && node --check sw.js"
     }
   ],
   "buildSteps": [],

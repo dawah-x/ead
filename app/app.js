@@ -19,6 +19,11 @@
   };
   const currentTab = pageToTab[page] || "";
 
+  const yearNode = document.getElementById("yr");
+  if (yearNode && !yearNode.textContent.trim()) {
+    yearNode.textContent = new Date().getFullYear();
+  }
+
   document.querySelectorAll(".app-tab, .app-more-link").forEach((link) => {
     const isTab = link.classList.contains("app-tab");
     const isCurrent = isTab
