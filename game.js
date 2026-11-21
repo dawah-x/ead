@@ -3,8 +3,8 @@
   const COLOR_NAMES = { red: 'লাল', blue: 'নীল', green: 'সবুজ', yellow: 'হলুদ' };
   const COLOR_VARS = { red: '--red', blue: '--blue', green: '--green', yellow: '--yellow' };
   const CARD_LABELS = {
-    skip: 'SKIP', reverse: 'REV', draw2: '+2', draw4: '+4', draw6: '+6', draw10: '+10',
-    skipall: 'SKIP\nALL', discardall: 'DISCARD\nALL', wildreverse4: 'REV\n+4', wild: 'WILD', roulette: 'COLOR\nROULETTE'
+    skip: '⊘', reverse: '↻', draw2: '+2', draw4: '+4', draw6: '+6', draw10: '+10',
+    skipall: 'ALL', discardall: 'ALL', wildreverse4: '+4', wild: 'WILD', roulette: 'CLR'
   };
   const CARD_NAMES = {
     skip: 'স্কিপ', reverse: 'দিক বদল', draw2: '২টি টানো', draw4: '৪টি টানো', draw6: '৬টি টানো', draw10: '১০টি টানো',
@@ -56,6 +56,26 @@
     return CARD_LABELS[card.value] || card.value;
   }
 
+  function iconMarkup(value) {
+    const icons = {
+      skip: '<svg class="action-symbol" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22"/><path d="M17 47 47 17"/></svg>',
+      reverse: '<svg class="action-symbol reverse-symbol" viewBox="0 0 64 64" aria-hidden="true"><path d="M15 27a19 19 0 0 1 33-8l3 4M49 17v8h-8M49 37a19 19 0 0 1-33 8l-3-4m2 6v-8h8"/></svg>',
+      skipall: '<svg class="action-symbol" viewBox="0 0 64 64" aria-hidden="true"><circle cx="20" cy="23" r="7"/><circle cx="43" cy="23" r="7"/><path d="M8 48c1-9 5-14 12-14s11 5 12 14M32 48c1-9 5-14 11-14 7 0 11 5 12 14M12 51 52 13"/></svg>',
+      discardall: '<svg class="action-symbol bin-symbol" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 18h38M24 18v-6h16v6m8 0-3 34H19l-3-34m13 8v18m10-18v18"/></svg>'
+    };
+    if (value === '7') return '<span class="special-number seven-swap"><b>7</b><i>⇄</i></span>';
+    if (value === '0') return '<span class="special-number zero-pass"><b>0</b><i>↻</i></span>';
+    if (/^[0-9]$/.test(String(value))) return `<span class="card-value">${value}</span>`;
+    const amounts = { draw2: 2, draw4: 4, draw6: 6, draw10: 10 };
+    if (amounts[value]) return `<span class="face-draw">+${amounts[value]}</span>`;
+    if (icons[value]) return icons[value];
+    if (value === 'wildreverse4') return `<span class="face-combo">${icons.reverse}<b>+4</b></span>`;
+    if (value === 'wild') return '<span class="wild-face">WILD</span>';
+    if (value === 'roulette') return '<span class="roulette-face"><i></i><b>COLOR<br>ROULETTE</b></span>';
+    return `<span class="card-value">${value}</span>`;
+  }
+
+
   function cardAccessibleName(card) {
     const color = card.color === 'wild' ? 'ওয়াইল্ড' : COLOR_NAMES[card.color];
     return `${color} ${CARD_NAMES[card.value] || card.value}`;
@@ -75,8 +95,8 @@
     const inner = document.createElement('span');
     inner.className = 'card-inner';
     const main = document.createElement('span');
-    main.className = (CARD_LABELS[card.value] ? 'card-special' : 'card-value') + (card.color === 'wild' ? ' wild-label' : '');
-    main.innerHTML = label.replace('\n', '<br>');
+    main.className = `card-face${card.color === 'wild' ? ' wild-label' : ''}`;
+    main.innerHTML = iconMarkup(card.value);
     inner.append(main);
     node.append(inner);
     const topLeft = document.createElement('span');
@@ -163,6 +183,60 @@
     return !engine.winner && engine.phase !== 'over' && engine.current === 0;
   }
 
+  function captureCardFlight(card, playerId = 0) {
+    let source;
+    if (playerId === 0) {
+      source = [...el.hand.querySelectorAll('.card')].find(node => node.dataset.id === card.id);
+    } else {
+      source = $(`opp-${playerId}`)?.querySelector('.avatar');
+    }
+    if (!source) return null;
+    const rect = source.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const node = playerId === 0 ? source.cloneNode(true) : createCardElement(card, true);
+    node.removeAttribute('id');
+    node.removeAttribute('data-id');
+    node.setAttribute('aria-hidden', 'true');
+    node.tabIndex = -1;
+    node.disabled = true;
+    return { node, from: rect };
+  }
+
+  function animateCardFlight(flight) {
+    if (!flight || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
+    const target = el.discard.querySelector('.card:last-child');
+    if (!target) return false;
+    const from = flight.from;
+    const to = target.getBoundingClientRect();
+    if (!to.width || !to.height) return false;
+    const node = flight.node;
+    node.classList.remove('playable');
+    node.classList.add('card-flight');
+    Object.assign(node.style, {
+      position: 'fixed', left: `${from.left}px`, top: `${from.top}px`,
+      width: `${from.width}px`, height: `${from.height}px`, margin: '0',
+      transform: 'none', transformOrigin: 'top left', transition: 'none',
+      zIndex: '10000', pointerEvents: 'none'
+    });
+    document.body.append(node);
+    target.style.visibility = 'hidden';
+    void node.offsetWidth;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const dx = to.left - from.left;
+      const dy = to.top - from.top;
+      const sx = to.width / from.width;
+      const sy = to.height / from.height;
+      node.style.transition = 'transform 560ms cubic-bezier(.18,.72,.22,1), opacity 560ms ease';
+      node.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy}) rotate(1deg)`;
+      node.style.opacity = '.96';
+    }));
+    window.setTimeout(() => {
+      target.style.visibility = '';
+      node.remove();
+    }, 610);
+    return true;
+  }
+
   function render() {
     renderOpponents();
     renderDiscard();
@@ -242,6 +316,7 @@
     ).join('')}</div>`, { locked: true });
     el.content.querySelectorAll('[data-color]').forEach(button => {
       button.addEventListener('click', () => {
+        const flight = roulette ? null : captureCardFlight(engine.players[0].hand.find(card => card.id === cardId), 0);
         const result = roulette
           ? engine.chooseRouletteColor(button.dataset.color, 0)
           : engine.playCard(cardId, { color: button.dataset.color });
@@ -251,29 +326,7 @@
         }
         hideModal(true);
         beep(610);
-        afterAction(roulette ? `কালার রুলেটে ${result.drawn}টি কার্ড তুলেছো` : 'কার্ড খেলেছো');
-      });
-    });
-  }
-
-  function openDiscardAllChoice(cardId) {
-    const player = engine.players[0];
-    const played = player.hand.find(card => card.id === cardId);
-    if (!played) return;
-    const choices = [played, ...player.hand.filter(card => card.id !== played.id && card.color === played.color)];
-    showModal(`<h2>কোন কার্ডটি ওপরে থাকবে?</h2><p>একই রঙের কার্ডগুলো ফেলে দাও, তারপর ওপরের কার্ড বেছে নাও।</p><div class="choice-row">${choices.map(card =>
-      `<button class="choice-button" data-top-card="${card.id}"><span class="mini-choice-card ${card.color}">${cardText(card).replace('\\n', ' ')}</span>ওপরে রাখো</button>`
-    ).join('')}</div>`, { locked: true });
-    el.content.querySelectorAll('[data-top-card]').forEach(button => {
-      button.addEventListener('click', () => {
-        const result = engine.playCard(cardId, { topCardId: button.dataset.topCard });
-        if (!result.ok) {
-          showToast('Discard All-এর কার্ড বাছাই করা যায়নি');
-          return;
-        }
-        hideModal(true);
-        beep(460);
-        afterAction(`${result.event.discarded}টি কার্ড ফেলে দিয়েছো`);
+        afterAction(roulette ? `কালার রুলেটে ${result.drawn}টি কার্ড তুলেছো` : 'কার্ড খেলেছো', flight);
       });
     });
   }
@@ -285,6 +338,7 @@
     ).join('')}</div>`, { locked: true });
     el.content.querySelectorAll('[data-player]').forEach(button => {
       button.addEventListener('click', () => {
+        const flight = captureCardFlight(engine.players[0].hand.find(card => card.id === cardId), 0);
         const result = engine.playCard(cardId, { swapWith: Number(button.dataset.player) });
         if (!result.ok) {
           showToast('এই খেলোয়াড়ের সঙ্গে হাত বদলানো যাচ্ছে না');
@@ -292,7 +346,7 @@
         }
         hideModal(true);
         beep(530);
-        afterAction(`${engine.players[0].name} ${engine.players[Number(button.dataset.player)].name}-এর সঙ্গে হাত বদলেছে`);
+        afterAction(`${engine.players[0].name} ${engine.players[Number(button.dataset.player)].name}-এর সঙ্গে হাত বদলেছে`, flight);
       });
     });
   }
@@ -312,21 +366,18 @@
       openSwapChoice(cardId);
       return;
     }
-    if (card.value === 'discardall' && engine.players[0].hand.some(item => item.id !== card.id && item.color === card.color)) {
-      openDiscardAllChoice(cardId);
-      return;
-    }
     if (['wild', 'draw6', 'draw10', 'wildreverse4'].includes(card.value)) {
       openColorChoice(cardId);
       return;
     }
+    const flight = captureCardFlight(card, 0);
     const result = engine.playCard(cardId);
     if (!result.ok) {
       showToast(result.error === 'must-call-uno' ? 'আগে UNO বলো!' : 'এই কার্ডটি এখন খেলা যাবে না');
       return;
     }
     beep(490);
-    afterAction(eventMessage(result.event));
+    afterAction(eventMessage(result.event), flight);
   }
 
   function eventMessage(event) {
@@ -346,6 +397,8 @@
       if (result.ok) {
         beep(280, 0.12);
         afterAction(`${result.drawn}টি কার্ড তুলেছো`);
+      } else if (result.error === 'must-call-uno') {
+        showToast('আগে UNO বলো!');
       }
       return;
     }
@@ -380,10 +433,6 @@
   function botPlay(card, player) {
     const options = {};
     if (['wild', 'draw6', 'draw10', 'wildreverse4'].includes(card.value)) options.color = chooseBotColor(player);
-    if (card.value === 'discardall') {
-      const top = player.hand.find(item => item.id !== card.id && item.color === card.color);
-      if (top) options.topCardId = top.id;
-    }
     if (card.value === '7') {
       const target = engine.players
         .filter(item => item.id !== player.id && !item.eliminated)
@@ -391,8 +440,9 @@
       if (!target) return;
       options.swapWith = target.id;
     }
+    const flight = captureCardFlight(card, player.id);
     const result = engine.playCard(card.id, options);
-    if (result.ok) afterAction(`${player.name} চাল দিয়েছে`);
+    if (result.ok) afterAction(`${player.name} চাল দিয়েছে`, flight);
   }
 
   function scheduleTurn(delay = 750) {
@@ -405,10 +455,27 @@
       openColorChoice(null, true);
       return;
     }
+    if (engine.current === 0 && engine.unoPending === 0) {
+      const catcher = engine.activePlayers.find(player => player.bot);
+      if (catcher) {
+        botTimer = window.setTimeout(() => catchHumanUno(catcher), 1900);
+      }
+      return;
+    }
     if (engine.players[engine.current].bot) {
       const grace = engine.unoPending === 0 ? 1900 : delay;
       botTimer = window.setTimeout(runBotTurn, grace);
     }
+  }
+
+  function catchHumanUno(catcher) {
+    if (engine.unoPending !== 0 || engine.winner) return;
+    const result = engine.catchUno(catcher.id);
+    if (!result.ok) return;
+    render();
+    showToast('UNO বলতে ভুলেছো — প্রতিপক্ষ +২ দিল!');
+    if (engine.winner) showEndGame();
+    else scheduleTurn(650);
   }
 
   function runBotTurn() {
@@ -450,16 +517,18 @@
     botPlay(chooseBotCard(playable, player), player);
   }
 
-  function afterAction(message) {
+  function afterAction(message, flight = null) {
     window.clearTimeout(botTimer);
     render();
+    const animating = animateCardFlight(flight);
     if (engine.winner !== null || engine.phase === 'over') {
-      showEndGame();
+      if (animating) window.setTimeout(showEndGame, 620);
+      else showEndGame();
       return;
     }
     if (engine.unoPending === 0) showToast('একটি কার্ড বাকি — UNO বলো!', 3200);
     else if (message) showToast(message);
-    scheduleTurn(engine.unoPending === 0 ? 1900 : 750);
+    scheduleTurn(engine.unoPending === 0 ? 1900 : (animating ? 850 : 750));
   }
 
   function showEndGame() {
@@ -486,7 +555,7 @@
   }
 
   function showRules() {
-    showModal(`<h2>খেলার নিয়ম</h2><p><b>লক্ষ্য:</b> আগে হাতের কার্ড শেষ করো, অথবা শেষ জীবিত খেলোয়াড় থাকো। রং, সংখ্যা বা চিহ্ন মেলাও।</p><p><b>ড্র:</b> চালের কার্ড না থাকলে খেলতে পারা কার্ড না পাওয়া পর্যন্ত তুলো; পেলে সেটি খেলতেই হবে। ড্র-কার্ডে সমান বা বেশি মানের ড্র কার্ড চাপাও, না পারলে পুরো জমা তুলো।</p><p><b>বিশেষ চাল:</b> ৭ = একজনের সঙ্গে হাত বদল; ০ = সবাই দিক অনুযায়ী হাত ঘোরাও; Skip Everyone = আবার তোমার চাল; Discard All = একই রঙের সব কার্ড ফেলে দাও। Color Roulette-এ পরের খেলোয়াড় রং বলে এবং সেই রং না পাওয়া পর্যন্ত তোলে। ২৫ কার্ড হলেই বাদ।</p><button class="modal-action" id="gotIt">বুঝেছি</button>`);
+    showModal(`<h2>খেলার নিয়ম</h2><p><b>লক্ষ্য:</b> আগে হাতের কার্ড শেষ করো, অথবা শেষ জীবিত খেলোয়াড় থাকো। রং, সংখ্যা বা চিহ্ন মিলিয়ে একটি কার্ড খেলো। হাতে এক কার্ড হলে UNO বলো—পরের খেলোয়াড় শুরু করার আগে ধরা পড়লে +২ তুলবে।</p><p><b>ড্র:</b> কার্ড না মিললে খেলতে পারা কার্ড না পাওয়া পর্যন্ত তুলো; পেলে সেটি খেলতেই হবে। ড্র-কার্ডে সমান বা বেশি মানের ড্র কার্ড চাপাও; কেউ না পারলে পুরো জমা তুলে পালা হারায়।</p><p><b>বিশেষ চাল:</b> ৭ = একজনের সঙ্গে হাত বদল; ০ = সবাই দিক অনুযায়ী হাত ঘোরাও; Skip Everyone = আবার তোমার চাল; Discard All = একই রঙের সব কার্ড ফেলে দাও, বাড়তি কার্ডগুলো এর নিচে যাবে। দুই খেলোয়াড়ে Reverse, Skip-এর মতো কাজ করে।</p><p><b>Wild Color Roulette:</b> পরের খেলোয়াড় রং বেছে ড্র পাইল থেকে একে একে কার্ড তোলে; Wild কার্ড গোনা হয় না। ঘোষিত রং পেলে সব তোলা কার্ড হাতে রেখে পালা হারায়। দুই খেলোয়াড় বাকি থাকলে Wild Reverse +4 খেলোয়াড়কে নিজের দিকে +৪ টানে; stack করে বিপক্ষকে ফেরত পাঠানো যায়। হাতে ২৫ কার্ড হলেই বাদ।</p><button class="modal-action" id="gotIt">বুঝেছি</button>`);
     $('gotIt').addEventListener('click', () => hideModal());
   }
 
@@ -506,6 +575,7 @@
   });
   el.unoBtn.addEventListener('click', () => {
     if (engine.callUno(0)) {
+      window.clearTimeout(botTimer);
       render();
       showToast('UNO! ঠিক সময়ে বলেছো');
     }
