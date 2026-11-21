@@ -139,7 +139,24 @@
 
   function renderHand() {
     el.hand.replaceChildren();
-    engine.players[0].hand.forEach(card => el.hand.append(createCardElement(card)));
+    const hand = engine.players[0].hand;
+    const center = (hand.length - 1) / 2;
+    const spread = Math.min(8, Math.max(3, hand.length * 0.55));
+    hand.forEach((card, index) => {
+      const face = createCardElement(card);
+      const tilt = center === 0 ? 0 : ((index - center) / center) * spread;
+      face.style.setProperty('--tilt', `${tilt.toFixed(1)}deg`);
+      el.hand.append(face);
+    });
+    const firstCard = el.hand.firstElementChild;
+    if (hand.length > 7 && firstCard) {
+      const cardWidth = firstCard.getBoundingClientRect().width || 84;
+      const available = Math.max(240, el.hand.clientWidth - 20);
+      const spacing = Math.max(cardWidth * 0.42, Math.min(cardWidth - 14, (available - cardWidth) / (hand.length - 1)));
+      el.hand.style.setProperty('--card-overlap', `${Math.max(0, cardWidth - spacing)}px`);
+    } else {
+      el.hand.style.removeProperty('--card-overlap');
+    }
   }
 
   function isHumanTurn() {
@@ -176,6 +193,7 @@
           : humanTurn
             ? (playable ? 'খেলার মতো কার্ড বেছে নাও' : 'কোনো কার্ড মেলেনি — ড্র পাইল চাপো')
             : 'প্রতিপক্ষ খেলছে…';
+    if (human.hand.length > 8) el.hint.textContent = 'কার্ড দেখতে পাশে টেনে নাও →';
     if (engine.pending) {
       el.toast.hidden = false;
       el.toast.textContent = `ড্র পেনাল্টি +${engine.pending}`;
