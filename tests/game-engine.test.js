@@ -60,6 +60,18 @@ test('enforces equal-or-higher draw stacking and accumulates the penalty', () =>
   assert.equal(engine.canPlay(engine.players[1].hand[0]), false);
 });
 
+test('drawing a stacked penalty draws the full amount and loses the turn', () => {
+  const engine = makeEngine();
+  const hand = [card('blue', '1'), card('green', '2')];
+  const deck = [card('yellow', '3'), card('red', '4'), card('green', '5'), card('blue', '6')];
+  setTable(engine, { hands: [[card('red', '7'), ...hand], [card('green', '3')], [card('yellow', '4')], [card('blue', '6')]], top: card('red', 'draw2'), deck, pending: 4, pendingLast: 4 });
+  const result = engine.drawPenalty(0);
+  assert.equal(result.drawn, 4);
+  assert.equal(engine.pending, 0);
+  assert.equal(engine.current, 1);
+  assert.equal(engine.players[0].hand.length, 7);
+});
+
 test('the player who cannot stack draws the total and is eliminated immediately at 25', () => {
   const engine = makeEngine();
   const hand = Array.from({ length: 24 }, (_, index) => card('blue', String(index % 10), `h${index}`));
@@ -120,15 +132,16 @@ test('Discard All removes the matching color but leaves its played card on top',
   assert.equal(engine.topCard.id, discardAll.id);
 });
 
-test('Discard All lets the player select another same-color card for the top', () => {
+test('Discard All puts all matching-color cards underneath the played card', () => {
   const engine = makeEngine();
   const discardAll = card('green', 'discardall');
   const selected = card('green', '7');
-  setTable(engine, { hands: [[discardAll, selected, card('green', '1'), card('red', '2')], [card('blue', '3')], [card('yellow', '4')], [card('blue', '6')]], top: card('green', '5') });
-  const result = engine.playCard(discardAll.id, { topCardId: selected.id });
+  const extra = card('green', '1');
+  setTable(engine, { hands: [[discardAll, selected, extra, card('red', '2')], [card('blue', '3')], [card('yellow', '4')], [card('blue', '6')]], top: card('green', '5') });
+  const result = engine.playCard(discardAll.id);
   assert.equal(result.ok, true);
-  assert.equal(engine.topCard.id, selected.id);
-  assert.equal(engine.discard.some(item => item.id === discardAll.id), true);
+  assert.equal(engine.topCard.id, discardAll.id);
+  assert.deepEqual(engine.discard.slice(-3).map(item => item.id), [selected.id, extra.id, discardAll.id]);
   assert.deepEqual(engine.players[0].hand.map(item => item.value), ['2']);
 });
 
@@ -162,6 +175,61 @@ test('Reverse changes direction and the next player follows the reversed order',
   assert.equal(engine.playCard(reverse.id).ok, true);
   assert.equal(engine.direction, -1);
   assert.equal(engine.current, 3);
+});
+
+test('two-player Wild Reverse Draw Four sends the penalty back to the player who played it', () => {
+  const engine = new NoMercyEngine({
+    random: () => 0.4,
+    players: [{ name: 'তুমি', short: 'YOU', bot: false }, { name: 'বট', short: 'BOT', bot: true }]
+  });
+  const reverseFour = card('wild', 'wildreverse4');
+  const drawDeck = Array.from({ length: 8 }, (_, index) => card('blue', String(index % 10), `draw${index}`));
+  setTable(engine, { hands: [[reverseFour, card('blue', '2')], [card('red', '5')]], top: card('red', '3'), deck: drawDeck });
+  assert.equal(engine.playCard(reverseFour.id, { color: 'blue' }).ok, true);
+  assert.equal(engine.direction, -1);
+  assert.equal(engine.current, 0);
+  assert.equal(engine.pending, 4);
+  assert.equal(engine.drawPenalty(0).error, 'must-call-uno');
+  assert.equal(engine.callUno(0), true);
+  const penalty = engine.drawPenalty(0);
+  assert.equal(penalty.drawn, 4);
+  assert.equal(engine.current, 1);
+  assert.equal(engine.pending, 0);
+});
+
+test('an opponent can catch UNO while the two-player reverse penalty is self-directed', () => {
+  const engine = new NoMercyEngine({
+    random: () => 0.4,
+    players: [{ name: 'তুমি', short: 'YOU', bot: false }, { name: 'বট', short: 'BOT', bot: true }]
+  });
+  const reverseFour = card('wild', 'wildreverse4');
+  const deck = Array.from({ length: 8 }, (_, index) => card('green', String(index % 10), `catch${index}`));
+  setTable(engine, { hands: [[reverseFour, card('blue', '2')], [card('red', '5')]], top: card('yellow', '2'), deck });
+  engine.playCard(reverseFour.id, { color: 'blue' });
+  const caught = engine.catchUno(1);
+  assert.equal(caught.ok, true);
+  assert.equal(caught.drawn, 2);
+  assert.equal(engine.current, 0);
+  assert.equal(engine.players[0].hand.length, 3);
+  assert.equal(engine.drawPenalty(0).drawn, 4);
+  assert.equal(engine.current, 1);
+});
+
+test('the two-player Reverse Draw Four cannot win before its self-draw resolves', () => {
+  const engine = new NoMercyEngine({
+    random: () => 0.4,
+    players: [{ name: 'তুমি', short: 'YOU', bot: false }, { name: 'বট', short: 'BOT', bot: true }]
+  });
+  const reverseFour = card('wild', 'wildreverse4');
+  const deck = Array.from({ length: 4 }, (_, index) => card('green', String(index), `last${index}`));
+  setTable(engine, { hands: [[reverseFour], [card('red', '5')]], top: card('yellow', '2'), deck });
+  engine.playCard(reverseFour.id, { color: 'blue' });
+  assert.equal(engine.players[0].hand.length, 0);
+  assert.equal(engine.winner, null);
+  assert.equal(engine.current, 0);
+  engine.drawPenalty(0);
+  assert.equal(engine.players[0].hand.length, 4);
+  assert.equal(engine.winner, null);
 });
 
 test('a player who gets an immediate extra turn must call UNO before acting again', () => {

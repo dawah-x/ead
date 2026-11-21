@@ -141,13 +141,6 @@
         const target = this.players[options.swapWith];
         if (!target || target.id === player.id || target.eliminated) return this.result(false, { needs: 'swap' });
       }
-      if (card.value === 'discardall') {
-        const possibleTops = [card, ...player.hand.filter(item => item.id !== card.id && item.color === card.color)];
-        if (options.topCardId && !possibleTops.some(item => item.id === options.topCardId)) {
-          return this.result(false, { error: 'invalid-discard-all-top' });
-        }
-      }
-
       const previousCount = player.hand.length;
       player.hand.splice(handIndex, 1);
       this.discard.push(card);
@@ -155,18 +148,16 @@
       if (WILD_VALUES.has(card.value) && card.value !== 'roulette') card.chosenColor = options.color;
 
       let nextSteps = 1;
+      let reverseDrawForSelf = false;
       let event = { type: 'play', playerId: player.id, card, drawn: 0, discarded: 0 };
 
       if (card.value === 'discardall') {
         const matches = player.hand.filter(item => item.color === card.color);
         player.hand = player.hand.filter(item => item.color !== card.color);
-        const topId = options.topCardId || card.id;
-        const pileCards = [card, ...matches];
-        const selectedTop = pileCards.find(item => item.id === topId) || card;
         this.discard.pop();
-        this.discard.push(...pileCards.filter(item => item.id !== selectedTop.id), selectedTop);
+        this.discard.push(...matches, card);
         event.discarded = matches.length;
-        event.topCard = selectedTop;
+        event.topCard = card;
       }
 
       if (card.value === '7') {
@@ -184,7 +175,10 @@
       }
       if (card.value === 'reverse' || card.value === 'wildreverse4') {
         this.direction *= -1;
-        if (this.activePlayers.length === 2 && card.value === 'reverse') nextSteps = 2;
+        if (this.activePlayers.length === 2) {
+          if (card.value === 'reverse') nextSteps = 2;
+          else reverseDrawForSelf = true;
+        }
       }
       if (card.value === 'skip') nextSteps = 2;
       if (card.value === 'skipall') nextSteps = 0;
@@ -192,6 +186,9 @@
       if (card.value === 'roulette') {
         this.moveCurrent(1);
         this.phase = 'roulette-color';
+      } else if (reverseDrawForSelf) {
+        this.current = player.id;
+        this.mustPlayCardId = null;
       } else if (this.pending > 0) {
         this.moveCurrent(1);
       } else {
@@ -207,8 +204,8 @@
         this.unoPending = null;
       }
 
-      this.applyMercyRule();
-      this.checkWinner();
+      this.applyMercyRule(!reverseDrawForSelf);
+      if (!reverseDrawForSelf) this.checkWinner();
       if (this.winner) this.phase = 'over';
       this.lastEvent = event;
       return this.result(true, { event });
@@ -262,11 +259,11 @@
       this.lastEvent = { type: 'elimination', playerId: player.id, reason };
     }
 
-    applyMercyRule() {
+    applyMercyRule(checkWinner = true) {
       for (const player of this.players) {
         if (!player.eliminated && player.hand.length >= 25) this.eliminate(player);
       }
-      this.checkWinner();
+      if (checkWinner) this.checkWinner();
     }
 
     checkWinner() {
@@ -329,6 +326,7 @@
       if (this.phase !== 'turn' || !this.pending || playerId !== this.current || this.winner) {
         return this.result(false, { error: 'no-pending-draw' });
       }
+      if (this.unoPending === playerId) return this.result(false, { error: 'must-call-uno' });
       const amount = this.pending;
       this.pending = 0;
       this.pendingLast = 0;
@@ -346,7 +344,8 @@
     }
 
     catchUno(callerId = this.current) {
-      if (this.unoPending === null || this.unoPending === callerId || callerId !== this.current || this.winner) {
+      const caller = this.players[callerId];
+      if (this.unoPending === null || this.unoPending === callerId || !caller || caller.eliminated || this.winner) {
         return this.result(false, { error: 'no-uno-to-catch' });
       }
       const targetId = this.unoPending;
