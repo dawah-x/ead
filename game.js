@@ -1,56 +1,502 @@
 (() => {
-  const COLORS = ['red','blue','green','yellow'];
-  const COLOR_NAMES = {red:'লাল',blue:'নীল',green:'সবুজ',yellow:'হলুদ'};
-  const ACTION_LABELS = {skip:'SKIP',reverse:'REV',draw2:'+2',draw4:'+4',draw6:'+6',draw10:'+10',skipall:'SKIP\nALL',discardall:'DISCARD\nALL',wildreverse4:'REV\n+4'};
-  const ACTION_NAMES = {skip:'স্কিপ',reverse:'দিক বদল',draw2:'২টি টানো',draw4:'৪টি টানো',draw6:'৬টি টানো',draw10:'১০টি টানো',skipall:'সবাই স্কিপ',discardall:'সব ফেলে দাও',wildreverse4:'দিক বদল +৪'};
-  const players = [{id:0,name:'তুমি',short:'YOU',kind:'human',hand:[],eliminated:false},{id:1,name:'রাফি',short:'RF',kind:'bot',hand:[],eliminated:false},{id:2,name:'মায়া',short:'MY',kind:'bot',hand:[],eliminated:false},{id:3,name:'নীল',short:'NL',kind:'bot',hand:[],eliminated:false}];
-  let deck=[], discard=[], current=0, direction=1, pending=0, pendingLast=0, busy=false, gameOver=false, hasDrawn=false, soundOn=false, toastTimer;
-  const $=id=>document.getElementById(id);
-  const el={hand:$('playerHand'), discard:$('discardStack'), deck:$('drawPile'), drawBtn:$('drawBtn'), drawText:$('drawButtonText'), status:$('statusText'), sub:$('subStatus'), count:$('handCount'), playerCount:$('playerCardCount'), deckCount:$('deckCount'), toast:$('challengeToast'), modal:$('modal'), content:$('modalContent'), message:$('liveMessage'), turn:$('turnText'), direction:document.querySelector('.direction'), indicator:$('turnIndicator'), youTurn:$('youTurn'), hint:$('handHint')};
-  const makeCard=(color,value)=>({color,value,id:Math.random().toString(36).slice(2)});
-  function makeDeck(){const d=[];for(const c of COLORS){d.push(makeCard(c,'0'));for(let n=1;n<=9;n++){d.push(makeCard(c,String(n)),makeCard(c,String(n)));}for(const v of ['skip','reverse','draw2']){d.push(makeCard(c,v),makeCard(c,v));}}for(const v of ['draw4','draw6','draw10','skipall','discardall','wildreverse4'])for(let i=0;i<4;i++)d.push(makeCard('wild',v));return shuffle(d)}
-  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-  function startGame(){players.forEach(p=>{p.hand=[];p.eliminated=false});deck=makeDeck();discard=[];current=0;direction=1;pending=0;pendingLast=0;busy=false;gameOver=false;hasDrawn=false;for(let n=0;n<7;n++)players.forEach(p=>p.hand.push(deck.pop()));let first=deck.pop();while(first.color==='wild'||Number.isNaN(Number(first.value))){deck.unshift(first);first=deck.pop()}discard.push(first);render();setStatus('একটি কার্ড বেছে নাও','রং, সংখ্যা বা চিহ্ন মিলিয়ে খেলো');showToast('গেম শুরু! তোমার চাল—');}
-  function topCard(){return discard[discard.length-1]}
-  function legal(card){if(!card||gameOver)return false;if(pending)return isDraw(card)&&drawPower(card)>=pendingLast;if(card.color==='wild')return true;const activeColor=topCard().color==='wild'?(topCard().chosenColor||null):topCard().color;return card.color===activeColor||card.value===topCard().value}
-  function isDraw(c){return ['draw2','draw4','draw6','draw10','wildreverse4'].includes(c.value)}
-  function drawPower(c){return Number((c.value.match(/\d+/)||['0'])[0])}
-  function cardLabel(c){return c.value in ACTION_LABELS?ACTION_LABELS[c.value]:c.value}
-  function buildCard(c,small=false){const node=document.createElement('button');node.type='button';node.className=`card playing-card ${c.color}${legal(c)?' playable':''}`;node.dataset.id=c.id;node.setAttribute('aria-label',`${c.color==='wild'?'Wild '+ACTION_NAMES[c.value]:COLOR_NAMES[c.color]+' '+(ACTION_NAMES[c.value]||c.value)}`);if(small)node.tabIndex=-1;const val=cardLabel(c);const inner=document.createElement('span');inner.className='card-inner';const main=document.createElement('span');main.className=(c.value in ACTION_LABELS?'card-special':'card-value')+(c.color==='wild'?' wild-label':'');main.innerHTML=val.replace('\n','<br>');inner.append(main);node.append(inner);const tl=document.createElement('span');tl.className='card-corner tl';tl.textContent=val.replace('\n',' ');const br=document.createElement('span');br.className='card-corner br';br.textContent=val.replace('\n',' ');node.append(tl,br);if(!small){node.style.setProperty('--tilt',`${(Math.random()*6-3).toFixed(1)}deg`);node.addEventListener('click',()=>playCard(c.id));}return node;}
-  function render(){renderOpponents();renderDiscard();renderHand();el.deckCount.textContent=deck.length;el.count.textContent=players[0].hand.length;el.playerCount.textContent=`${players[0].hand.length}টি কার্ড`;el.direction.textContent=direction===1?'↻':'↺';el.drawBtn.disabled=busy||gameOver||current!==0;el.drawText.textContent=pending?`${pending}টি তুলো`:'কার্ড তুলো';el.indicator.classList.toggle('active',current===0&&!busy&&!gameOver);el.turn.textContent=current===0?'তোমার পালা':`${players[current].name}-এর পালা`;el.youTurn.textContent=current===0&&!busy?'তোমার পালা':(current===0?'ভাবছে…':'অপেক্ষা');el.unoBtn.disabled=gameOver||players[0].hand.length!==1;el.hint.textContent=pending?`ড্র জমেছে ${pending} — সমান বা বড় ড্র কার্ড দাও`:(current===0?'কার্ডে চাপ দিয়ে খেলো':'প্রতিপক্ষ খেলছে…');if(pending){el.toast.hidden=false;el.toast.textContent=`ড্র পেনাল্টি +${pending}`}else el.toast.hidden=true;}
-  function renderOpponents(){for(let i=1;i<=3;i++){const p=players[i],box=$(`opp-${i}`);box.innerHTML='';const seat=document.createElement('div');seat.className='opponent-card';const av=document.createElement('span');av.className=`avatar bot-${i}`;av.textContent=p.short;const meta=document.createElement('span');meta.className='player-meta';meta.innerHTML=`<b>${p.name}</b><small>${p.hand.length}টি কার্ড</small>`;seat.append(av,meta);if(p.hand.length<=5){const backs=document.createElement('span');backs.className='mini-card-row';for(let n=0;n<p.hand.length;n++){const b=document.createElement('i');b.className='mini-back';backs.append(b)}seat.append(backs)}box.append(seat)}}
-  function renderDiscard(){el.discard.innerHTML='';const start=Math.max(0,discard.length-3);discard.slice(start).forEach(c=>el.discard.append(buildCard(c,true)))}
-  function renderHand(){el.hand.innerHTML='';players[0].hand.forEach(c=>el.hand.append(buildCard(c)))}
-  function setStatus(main,sub){el.status.textContent=main;el.sub.textContent=sub}
-  function showToast(text){el.message.textContent=text;el.message.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.message.classList.remove('show'),2100)}
-  function reshuffleIfNeeded(){if(deck.length)return;const top=discard.pop();deck=shuffle(discard);discard=[top];showToast('ড্র পাইল নতুন করে মেশানো হলো')}
-  function takeCards(p,n){for(let i=0;i<n;i++){reshuffleIfNeeded();if(deck.length)p.hand.push(deck.pop())}if(p.hand.length>=25){showToast(`${p.name} ২৫ কার্ডে বাদ!`);p.hand=[];p.eliminated=true;if(p.id===0){endGame(false);return true}const alive=players.filter(x=>!x.eliminated);if(alive.length===1){endGame(alive[0].id===0,alive[0].name);return true}}return false}
-  function nextIndex(from=current,steps=1){let idx=from;for(let i=0;i<steps;i++){let tries=0;do{idx=(idx+direction+players.length)%players.length;tries++}while(players[idx].eliminated&&tries<players.length+1)}return idx}
-  function advance(steps=1){current=nextIndex(current,steps);hasDrawn=false;busy=false;render();if(current!==0&&!gameOver)setTimeout(botTurn,750+Math.random()*500);else if(current===0&&!gameOver)setStatus(pending?`তোমার পালা — ${pending}টি তুলতে হবে`:'তোমার পালা','');}
-  function playCard(id, chosenColor){if(current!==0||busy||gameOver)return;const idx=players[0].hand.findIndex(c=>c.id===id),card=players[0].hand[idx];if(idx<0||!legal(card))return;if(card.color==='wild'){chooseWild(id);return}players[0].hand.splice(idx,1);finishPlay(card,chosenColor)}
-  function finishPlay(card,chosenColor){discard.push(card);if(chosenColor)card.chosenColor=chosenColor;const player=players[current];pending=0;pendingLast=0;hasDrawn=false;
-    if(card.value==='discardall'&&player.hand.length){const activeColor=card.chosenColor||card.color;const matching=player.hand.filter(c=>c.color===activeColor);player.hand=player.hand.filter(c=>c.color!==activeColor);discard.pop();discard.push(...matching,card);showToast(`${player.name} ${matching.length}টি কার্ড ফেলে দিল`)}
-    if(card.value==='7'){if(current===0){render();chooseSwap();return}const targets=players.filter(p=>p.id!==current&&!p.eliminated);if(targets.length){const target=targets[Math.floor(Math.random()*targets.length)];[player.hand,target.hand]=[target.hand,player.hand];showToast(`${player.name} ${target.name}-এর সঙ্গে হাত বদলাল`)}}
-    if(card.value==='0'){rotateHands();showToast('সবাই হাত বদল করল!')}
-    if(isDraw(card)){pending=drawPower(card);pendingLast=drawPower(card)}
-    if(card.value==='reverse'||card.value==='wildreverse4')direction*=-1;
-    let steps=1;if(card.value==='skip'||card.value==='skipall')steps=card.value==='skipall'?players.length-1:2;
-    render();if(checkWin())return;
-    if(pending){current=nextIndex(current);busy=false;render();if(current!==0)setTimeout(botTurn,750);else setStatus(`তোমার পালা — ${pending}টি ড্র জমেছে`,'সমান বা বড় ড্র কার্ড দিয়ে চাপাও, না হলে সব তুলো');return}
-    advance(steps);
+  const COLORS = ['red', 'blue', 'green', 'yellow'];
+  const COLOR_NAMES = { red: 'লাল', blue: 'নীল', green: 'সবুজ', yellow: 'হলুদ' };
+  const COLOR_VARS = { red: '--red', blue: '--blue', green: '--green', yellow: '--yellow' };
+  const CARD_LABELS = {
+    skip: 'SKIP', reverse: 'REV', draw2: '+2', draw4: '+4', draw6: '+6', draw10: '+10',
+    skipall: 'SKIP\nALL', discardall: 'DISCARD\nALL', wildreverse4: 'REV\n+4', wild: 'WILD', roulette: 'COLOR\nROULETTE'
+  };
+  const CARD_NAMES = {
+    skip: 'স্কিপ', reverse: 'দিক বদল', draw2: '২টি টানো', draw4: '৪টি টানো', draw6: '৬টি টানো', draw10: '১০টি টানো',
+    skipall: 'সবাই স্কিপ', discardall: 'সব ফেলে দাও', wildreverse4: 'দিক বদল +৪', wild: 'ওয়াইল্ড', roulette: 'কালার রুলেট'
+  };
+  const $ = id => document.getElementById(id);
+  const engine = new NoMercyEngine();
+  const el = {
+    hand: $('playerHand'), discard: $('discardStack'), deck: $('drawPile'), drawBtn: $('drawBtn'), drawText: $('drawButtonText'),
+    status: $('statusText'), sub: $('subStatus'), count: $('handCount'), playerCount: $('playerCardCount'), deckCount: $('deckCount'),
+    toast: $('challengeToast'), modal: $('modal'), content: $('modalContent'), message: $('liveMessage'), turn: $('turnText'),
+    direction: document.querySelector('.direction'), indicator: $('turnIndicator'), youTurn: $('youTurn'), hint: $('handHint'),
+    unoBtn: $('unoBtn'), sortBtn: $('sortBtn'), modalClose: $('modalClose')
+  };
+  let botTimer = 0;
+  let toastTimer = 0;
+  let soundOn = false;
+  let audioContext = null;
+  let modalLocked = false;
+
+  function showToast(text, duration = 2200) {
+    el.message.textContent = text;
+    el.message.classList.add('show');
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => el.message.classList.remove('show'), duration);
   }
-  function rotateHands(){const alive=players.filter(p=>!p.eliminated);const old=alive.map(p=>p.hand);alive.forEach((p,i)=>{const target=alive[(i+direction+alive.length)%alive.length];target.hand=old[i]})}
-  function chooseSwap(){const list=players.slice(1).filter(p=>p.hand.length);el.content.innerHTML=`<h2>কার সঙ্গে হাত বদলাবে?</h2><p>৭ খেলেছো—একজন প্রতিদ্বন্দ্বীকে বেছে নাও।</p><div class="choice-row">${list.map(p=>`<button class="choice-button" data-swap="${p.id}"><span class="choice-avatar bot-${p.id}">${p.short}</span>${p.name} · ${p.hand.length}টি</button>`).join('')}</div>`;el.modal.hidden=false;el.content.querySelectorAll('[data-swap]').forEach(btn=>btn.onclick=()=>{const p=players[Number(btn.dataset.swap)];[players[0].hand,p.hand]=[p.hand,players[0].hand];el.modal.hidden=true;render();showToast(`${p.name}-এর সঙ্গে হাত বদল!`);if(checkWin())return;advance(1)})}
-  function chooseWild(id){const card=players[0].hand.find(c=>c.id===id);if(!card)return;el.content.innerHTML=`<h2>পরের রং বেছে নাও</h2><p>তোমার ইচ্ছেমতো রং ঘোষণা করো।</p><div class="choice-row">${COLORS.map(c=>`<button class="choice-button" data-color="${c}"><span class="choice-avatar ${c}" style="background:var(--${c})"></span>${COLOR_NAMES[c]}</button>`).join('')}</div>`;el.modal.hidden=false;el.content.querySelectorAll('[data-color]').forEach(btn=>btn.onclick=()=>{el.modal.hidden=true;card.color='wild';card.chosenColor=btn.dataset.color;players[0].hand.splice(players[0].hand.indexOf(card),1);finishPlay(card,btn.dataset.color)})}
-  function drawAction(){if(current!==0||busy||gameOver)return;if(pending){const n=pending;pending=0;pendingLast=0;takeCards(players[0],n);if(gameOver)return;showToast(`তুমি ${n}টি কার্ড তুলেছো`);if(checkWin())return;advance(1);return}const legalCards=players[0].hand.filter(legal);if(legalCards.length){showToast('তোমার হাতে খেলার মতো কার্ড আছে');return}busy=true;let drawn=null,tries=0;while(!drawn&&tries<deck.length+2){reshuffleIfNeeded();if(!deck.length)break;const c=deck.pop();players[0].hand.push(c);tries++;if(legal(c))drawn=c}busy=false;render();if(drawn){showToast('কার্ড তুলেছো—এখন এটি খেলো');setStatus('তোলা কার্ডটি খেলো','');}else{showToast('ড্র পাইল শেষ');advance(1)}}
-  function botTurn(){if(gameOver||current===0||busy)return;const p=players[current];if(!p||!p.hand.length){advance(1);return}busy=true;render();setStatus(`${p.name} ভাবছে…`,'');setTimeout(()=>{if(gameOver)return;const options=p.hand.filter(legal);if(options.length){let candidates=options;const rank=c=>({draw10:9,draw6:8,draw4:7,wildreverse4:6,draw2:5,skipall:4,discardall:3,skip:2,reverse:1}[c.value]||0);if(Math.random()<.4)candidates=options.filter(c=>rank(c)<6).length?options.filter(c=>rank(c)<6):options;candidates.sort((a,b)=>rank(a)-rank(b));const card=candidates[Math.floor(Math.random()*Math.min(candidates.length,3))];let chosen=card.color==='wild'?COLORS[Math.floor(Math.random()*4)]:null;p.hand.splice(p.hand.indexOf(card),1);if(card.color==='wild'&&chosen)card.color='wild';finishPlay(card,chosen);return}
-      if(pending){const n=pending;pending=0;pendingLast=0;takeCards(p,n);if(!gameOver){showToast(`${p.name} ${n}টি তুলল`);advance(1)}return}
-      let drawn=null,tries=0;while(!drawn&&tries<deck.length+2){reshuffleIfNeeded();if(!deck.length)break;const c=deck.pop();p.hand.push(c);tries++;if(legal(c))drawn=c}if(drawn){p.hand.splice(p.hand.indexOf(drawn),1);const chosen=drawn.color==='wild'?COLORS[Math.floor(Math.random()*4)]:null;finishPlay(drawn,chosen)}else advance(1)
-    },650+Math.random()*700)}
-  function checkWin(){const alive=players.filter(p=>!p.eliminated);const winner=alive.find(p=>p.hand.length===0);if(winner){endGame(winner.id===0,winner.name);return true}if(alive.length===1){endGame(alive[0].id===0,alive[0].name);return true}return false}
-  function endGame(won,name){gameOver=true;busy=false;render();el.content.innerHTML=`<h2 class="end-title">${won?'তুমি জিতেছো!':'গেম শেষ'}</h2><p>${won?'দারুণ চাল! প্রতিপক্ষদের হারিয়ে দিয়েছো।':`${name||'তুমি'} গেম থেকে বাদ পড়েছো।`}<br><span class="muted">আরেক রাউন্ড খেলবে?</span></p><button class="modal-action" id="againBtn">আবার খেলি</button>`;el.modal.hidden=false;$('againBtn').onclick=()=>{el.modal.hidden=true;startGame()}}
-  function sortHand(){const order={red:0,blue:1,green:2,yellow:3,wild:4};players[0].hand.sort((a,b)=>order[a.color]-order[b.color]||(Number(a.value)-Number(b.value))||a.value.localeCompare(b.value));renderHand();showToast('কার্ডগুলো রং অনুযায়ী সাজানো হয়েছে')}
-  function rules(){el.content.innerHTML=`<h2>খেলার নিয়ম</h2><p><b>লক্ষ্য:</b> আগে হাতের কার্ড শেষ করো, অথবা শেষ জীবিত খেলোয়াড় থাকো। ওপরের কার্ডের রং, সংখ্যা বা চিহ্ন মেলাও।</p><p><b>ড্র:</b> চাল দেওয়ার কার্ড না থাকলে খেলতে পারা কার্ড না পাওয়া পর্যন্ত তুলো। ড্র-কার্ডের শাস্তি এলে সমান বা বড় ড্র-কার্ড চাপিয়ে দিতে পারো; না পারলে পুরো জমা তুলতে হবে।</p><p><b>বিশেষ চাল:</b> ৭ = একজনের সঙ্গে হাত বদল; ০ = সবাই দিক অনুযায়ী হাত ঘোরাও; SKIP ALL = আবার তোমার চাল; DISCARD ALL = ওই রঙের সব কার্ড ফেলে দাও। হাতে ২৫টি হলে বাদ।</p><button class="modal-action" id="gotIt">বুঝেছি</button>`;el.modal.hidden=false;$('gotIt').onclick=()=>el.modal.hidden=true}
-  $('drawBtn').addEventListener('click',drawAction);el.deck.addEventListener('click',drawAction);$('sortBtn').addEventListener('click',sortHand);$('newGameBtn').addEventListener('click',()=>{if(confirm('নতুন গেম শুরু করবে? বর্তমান গেম হারিয়ে যাবে।')){el.modal.hidden=true;startGame()}});$('rulesBtn').addEventListener('click',rules);$('soundBtn').addEventListener('click',()=>{soundOn=!soundOn;$('soundBtn').textContent=soundOn?'♫':'♪';showToast(soundOn?'সাউন্ড চালু':'সাউন্ড বন্ধ')});$('modalClose').addEventListener('click',()=>el.modal.hidden=true);el.modal.addEventListener('click',e=>{if(e.target===el.modal)el.modal.hidden=true});$('unoBtn').addEventListener('click',()=>showToast(players[0].hand.length===1?'UNO! ঠিক সময়ে বলেছো!':'UNO বলতে হাতে এক কার্ড থাকতে হবে'));
+
+  function beep(frequency = 420, duration = 0.07) {
+    if (!soundOn) return;
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      audioContext ||= new AudioContext();
+      if (audioContext.state === 'suspended') audioContext.resume();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'triangle';
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.035, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + duration);
+    } catch (_) { /* Sound is optional; game play must never depend on it. */ }
+  }
+
+  function cardText(card) {
+    return CARD_LABELS[card.value] || card.value;
+  }
+
+  function cardAccessibleName(card) {
+    const color = card.color === 'wild' ? 'ওয়াইল্ড' : COLOR_NAMES[card.color];
+    return `${color} ${CARD_NAMES[card.value] || card.value}`;
+  }
+
+  function createCardElement(card, small = false) {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.className = `card playing-card ${card.color}${!small && engine.canPlay(card) ? ' playable' : ''}`;
+    node.dataset.id = card.id;
+    node.setAttribute('aria-label', cardAccessibleName(card));
+    if (small) {
+      node.tabIndex = -1;
+      node.setAttribute('aria-hidden', 'true');
+    }
+    const label = cardText(card);
+    const inner = document.createElement('span');
+    inner.className = 'card-inner';
+    const main = document.createElement('span');
+    main.className = (CARD_LABELS[card.value] ? 'card-special' : 'card-value') + (card.color === 'wild' ? ' wild-label' : '');
+    main.innerHTML = label.replace('\n', '<br>');
+    inner.append(main);
+    node.append(inner);
+    const topLeft = document.createElement('span');
+    topLeft.className = 'card-corner tl';
+    topLeft.textContent = label.replace('\n', ' ');
+    const bottomRight = document.createElement('span');
+    bottomRight.className = 'card-corner br';
+    bottomRight.textContent = label.replace('\n', ' ');
+    node.append(topLeft, bottomRight);
+    if (card.color === 'wild' && card.chosenColor) {
+      const chip = document.createElement('span');
+      chip.className = 'wild-color-chip';
+      chip.style.background = `var(${COLOR_VARS[card.chosenColor]})`;
+      chip.setAttribute('aria-label', `নির্বাচিত রং ${COLOR_NAMES[card.chosenColor]}`);
+      node.append(chip);
+    }
+    if (!small) {
+      node.addEventListener('click', () => playHumanCard(card.id));
+    }
+    return node;
+  }
+
+  function renderOpponents() {
+    for (let index = 1; index < engine.players.length; index += 1) {
+      const player = engine.players[index];
+      const box = $(`opp-${index}`);
+      box.replaceChildren();
+      const seat = document.createElement('div');
+      seat.className = `opponent-card${player.eliminated ? ' opponent-eliminated' : ''}`;
+      const avatar = document.createElement('span');
+      avatar.className = `avatar bot-${index}`;
+      avatar.textContent = player.eliminated ? 'OUT' : player.short;
+      const meta = document.createElement('span');
+      meta.className = 'player-meta';
+      const name = document.createElement('b');
+      name.textContent = player.name;
+      const count = document.createElement('small');
+      count.textContent = player.eliminated ? 'বাদ পড়েছে' : `${player.hand.length}টি কার্ড`;
+      meta.append(name, count);
+      seat.append(avatar, meta);
+      if (!player.eliminated && player.hand.length <= 5) {
+        const backs = document.createElement('span');
+        backs.className = 'mini-card-row';
+        for (let card = 0; card < player.hand.length; card += 1) {
+          const back = document.createElement('i');
+          back.className = 'mini-back';
+          backs.append(back);
+        }
+        seat.append(backs);
+      }
+      box.append(seat);
+    }
+  }
+
+  function renderDiscard() {
+    el.discard.replaceChildren();
+    engine.discard.slice(-3).forEach(card => el.discard.append(createCardElement(card, true)));
+  }
+
+  function renderHand() {
+    el.hand.replaceChildren();
+    engine.players[0].hand.forEach(card => el.hand.append(createCardElement(card)));
+  }
+
+  function isHumanTurn() {
+    return !engine.winner && engine.phase !== 'over' && engine.current === 0;
+  }
+
+  function render() {
+    renderOpponents();
+    renderDiscard();
+    renderHand();
+    const human = engine.players[0];
+    const humanTurn = isHumanTurn() && engine.phase === 'turn';
+    const playable = engine.legalCards(0).length > 0;
+    el.deckCount.textContent = engine.deck.length.toLocaleString('bn-BD');
+    el.count.textContent = human.hand.length.toLocaleString('bn-BD');
+    el.playerCount.textContent = `${human.hand.length.toLocaleString('bn-BD')}টি কার্ড`;
+    el.direction.textContent = engine.direction === 1 ? '↻' : '↺';
+    el.turn.textContent = engine.phase === 'roulette-color' ? `${engine.players[engine.current].name}-এর কালার রুলেট` : `${engine.players[engine.current].name}-এর পালা`;
+    el.youTurn.textContent = humanTurn ? 'তোমার পালা' : (engine.current === 0 ? 'রং বেছে নাও' : 'অপেক্ষা');
+    el.indicator.classList.toggle('active', humanTurn);
+    el.drawText.textContent = engine.pending ? `${engine.pending.toLocaleString('bn-BD')}টি তুলো` : 'কার্ড তুলো';
+    el.drawBtn.disabled = !humanTurn || (engine.pending === 0 && playable);
+    el.deck.disabled = el.drawBtn.disabled;
+    el.sortBtn.disabled = engine.phase === 'over';
+    el.unoBtn.disabled = engine.unoPending !== 0;
+    el.unoBtn.setAttribute('aria-label', engine.unoPending === 0 ? 'UNO বলো' : 'UNO এখন বলা যাবে না');
+    el.hint.textContent = engine.phase === 'roulette-color'
+      ? 'প্রতিপক্ষ রং বেছে ড্র করছে'
+      : engine.pending
+        ? `ড্র জমেছে +${engine.pending} — সমান বা বড় ড্র কার্ড খেলো, অথবা তুলে নাও`
+        : engine.mustPlayCardId
+          ? 'তোলা কার্ডটি এখন খেলতেই হবে'
+          : humanTurn
+            ? (playable ? 'খেলার মতো কার্ড বেছে নাও' : 'কোনো কার্ড মেলেনি — ড্র পাইল চাপো')
+            : 'প্রতিপক্ষ খেলছে…';
+    if (engine.pending) {
+      el.toast.hidden = false;
+      el.toast.textContent = `ড্র পেনাল্টি +${engine.pending}`;
+    } else {
+      el.toast.hidden = true;
+    }
+    if (engine.phase === 'roulette-color') {
+      setStatus('কালার রুলেট!', 'পরের খেলোয়াড় একটি রং বলবে এবং সেই রং না পাওয়া পর্যন্ত তুলবে');
+    } else if (engine.pending) {
+      setStatus(humanTurn ? `${engine.pending}টি ড্র জমেছে` : 'ড্র কার্ড জমছে…', 'সমান বা বেশি মানের ড্র কার্ড দিয়ে ঠেকাও');
+    } else if (humanTurn) {
+      setStatus(engine.mustPlayCardId ? 'তোলা কার্ডটি খেলো' : playable ? 'একটি কার্ড বেছে নাও' : 'কার্ড তুলতে হবে', 'রং, সংখ্যা বা চিহ্ন মিলিয়ে খেলো');
+    } else if (engine.phase !== 'over') {
+      setStatus(`${engine.players[engine.current].name} ভাবছে…`, '');
+    }
+  }
+
+  function setStatus(main, sub) {
+    el.status.textContent = main;
+    el.sub.textContent = sub;
+  }
+
+  function showModal(content, { locked = false } = {}) {
+    modalLocked = locked;
+    el.content.innerHTML = content;
+    el.modal.hidden = false;
+    el.modalClose.hidden = locked;
+    el.modal.dataset.locked = locked ? 'true' : 'false';
+  }
+
+  function hideModal(force = false) {
+    if (modalLocked && !force) return;
+    modalLocked = false;
+    el.modal.hidden = true;
+    el.modalClose.hidden = false;
+    el.modal.dataset.locked = 'false';
+  }
+
+  function openColorChoice(cardId, roulette = false) {
+    const title = roulette ? 'রং বলো' : 'পরের রং বেছে নাও';
+    const description = roulette
+      ? 'এই রং না পাওয়া পর্যন্ত তোমাকে ড্র করতে হবে।'
+      : 'ওয়াইল্ড কার্ডের জন্য রং ঘোষণা করো।';
+    showModal(`<h2>${title}</h2><p>${description}</p><div class="choice-row">${COLORS.map(color =>
+      `<button class="choice-button" data-color="${color}"><span class="choice-avatar" style="background:var(${COLOR_VARS[color]})"></span>${COLOR_NAMES[color]}</button>`
+    ).join('')}</div>`, { locked: true });
+    el.content.querySelectorAll('[data-color]').forEach(button => {
+      button.addEventListener('click', () => {
+        const result = roulette
+          ? engine.chooseRouletteColor(button.dataset.color, 0)
+          : engine.playCard(cardId, { color: button.dataset.color });
+        if (!result.ok) {
+          showToast('এই চালটি এখন দেওয়া যাচ্ছে না');
+          return;
+        }
+        hideModal(true);
+        beep(610);
+        afterAction(roulette ? `কালার রুলেটে ${result.drawn}টি কার্ড তুলেছো` : 'কার্ড খেলেছো');
+      });
+    });
+  }
+
+  function openDiscardAllChoice(cardId) {
+    const player = engine.players[0];
+    const played = player.hand.find(card => card.id === cardId);
+    if (!played) return;
+    const choices = [played, ...player.hand.filter(card => card.id !== played.id && card.color === played.color)];
+    showModal(`<h2>কোন কার্ডটি ওপরে থাকবে?</h2><p>একই রঙের কার্ডগুলো ফেলে দাও, তারপর ওপরের কার্ড বেছে নাও।</p><div class="choice-row">${choices.map(card =>
+      `<button class="choice-button" data-top-card="${card.id}"><span class="mini-choice-card ${card.color}">${cardText(card).replace('\\n', ' ')}</span>ওপরে রাখো</button>`
+    ).join('')}</div>`, { locked: true });
+    el.content.querySelectorAll('[data-top-card]').forEach(button => {
+      button.addEventListener('click', () => {
+        const result = engine.playCard(cardId, { topCardId: button.dataset.topCard });
+        if (!result.ok) {
+          showToast('Discard All-এর কার্ড বাছাই করা যায়নি');
+          return;
+        }
+        hideModal(true);
+        beep(460);
+        afterAction(`${result.event.discarded}টি কার্ড ফেলে দিয়েছো`);
+      });
+    });
+  }
+
+  function openSwapChoice(cardId) {
+    const choices = engine.players.filter(player => player.id !== 0 && !player.eliminated);
+    showModal(`<h2>কার সঙ্গে হাত বদলাবে?</h2><p>৭ খেলেছো—একজন প্রতিদ্বন্দ্বীকে বেছে নাও।</p><div class="choice-row">${choices.map(player =>
+      `<button class="choice-button" data-player="${player.id}"><span class="choice-avatar bot-${player.id}">${player.short}</span>${player.name} · ${player.hand.length}টি</button>`
+    ).join('')}</div>`, { locked: true });
+    el.content.querySelectorAll('[data-player]').forEach(button => {
+      button.addEventListener('click', () => {
+        const result = engine.playCard(cardId, { swapWith: Number(button.dataset.player) });
+        if (!result.ok) {
+          showToast('এই খেলোয়াড়ের সঙ্গে হাত বদলানো যাচ্ছে না');
+          return;
+        }
+        hideModal(true);
+        beep(530);
+        afterAction(`${engine.players[0].name} ${engine.players[Number(button.dataset.player)].name}-এর সঙ্গে হাত বদলেছে`);
+      });
+    });
+  }
+
+  function playHumanCard(cardId) {
+    if (!isHumanTurn() || engine.phase !== 'turn') return;
+    if (engine.unoPending === 0) {
+      showToast('আগে UNO বলো!');
+      return;
+    }
+    const card = engine.players[0].hand.find(item => item.id === cardId);
+    if (!card || !engine.canPlay(card, 0)) {
+      showToast('এই কার্ডটি এখন খেলা যাবে না');
+      return;
+    }
+    if (card.value === '7') {
+      openSwapChoice(cardId);
+      return;
+    }
+    if (card.value === 'discardall' && engine.players[0].hand.some(item => item.id !== card.id && item.color === card.color)) {
+      openDiscardAllChoice(cardId);
+      return;
+    }
+    if (['wild', 'draw6', 'draw10', 'wildreverse4'].includes(card.value)) {
+      openColorChoice(cardId);
+      return;
+    }
+    const result = engine.playCard(cardId);
+    if (!result.ok) {
+      showToast(result.error === 'must-call-uno' ? 'আগে UNO বলো!' : 'এই কার্ডটি এখন খেলা যাবে না');
+      return;
+    }
+    beep(490);
+    afterAction(eventMessage(result.event));
+  }
+
+  function eventMessage(event) {
+    if (!event) return 'চাল দেওয়া হয়েছে';
+    if (event.type === 'rotate') return 'সবাই হাত ঘোরাও!';
+    if (event.card && event.card.value === 'discardall') return `${event.discarded}টি কার্ড ফেলে দিয়েছো`;
+    if (event.swappedWith !== undefined) return `${engine.players[event.swappedWith].name}-এর সঙ্গে হাত বদল!`;
+    if (event.unoCalled) return 'UNO!';
+    return 'কার্ড খেলেছো';
+  }
+
+  function drawAction() {
+    if (!isHumanTurn() || engine.phase !== 'turn') return;
+    let result;
+    if (engine.pending) {
+      result = engine.drawPenalty(0);
+      if (result.ok) {
+        beep(280, 0.12);
+        afterAction(`${result.drawn}টি কার্ড তুলেছো`);
+      }
+      return;
+    }
+    result = engine.drawUntilPlayable(0);
+    if (!result.ok) {
+      showToast(result.error === 'must-call-uno' ? 'আগে UNO বলো!' : result.error === 'playable-card-in-hand' ? 'তোমার হাতে খেলার মতো কার্ড আছে' : 'এখন কার্ড তোলা যাচ্ছে না');
+      return;
+    }
+    beep(300, 0.09);
+    if (result.playableCard) {
+      afterAction('খেলার কার্ড পেয়েছো—এখন সেটি দাও');
+    } else {
+      afterAction(result.drawn ? `${result.drawn}টি কার্ড তুলেছো` : 'ড্র পাইল শেষ');
+    }
+  }
+
+  function chooseBotColor(player) {
+    const counts = Object.fromEntries(COLORS.map(color => [color, 0]));
+    player.hand.forEach(card => { if (counts[card.color] !== undefined) counts[card.color] += 1; });
+    return COLORS.reduce((best, color) => counts[color] > counts[best] ? color : best, COLORS[0]);
+  }
+
+  function chooseBotCard(cards, player) {
+    const score = card => {
+      let value = ({ draw10: 10, draw6: 9, wildreverse4: 8, draw4: 7, draw2: 6, skipall: 5, skip: 4, reverse: 3, discardall: 2, '7': 1, '0': 0 })[card.value] ?? 0;
+      if (card.value === 'discardall') value += player.hand.filter(item => item.color === card.color).length;
+      return value;
+    };
+    return [...cards].sort((a, b) => score(b) - score(a))[0];
+  }
+
+  function botPlay(card, player) {
+    const options = {};
+    if (['wild', 'draw6', 'draw10', 'wildreverse4'].includes(card.value)) options.color = chooseBotColor(player);
+    if (card.value === 'discardall') {
+      const top = player.hand.find(item => item.id !== card.id && item.color === card.color);
+      if (top) options.topCardId = top.id;
+    }
+    if (card.value === '7') {
+      const target = engine.players
+        .filter(item => item.id !== player.id && !item.eliminated)
+        .sort((a, b) => b.hand.length - a.hand.length)[0];
+      if (!target) return;
+      options.swapWith = target.id;
+    }
+    const result = engine.playCard(card.id, options);
+    if (result.ok) afterAction(`${player.name} চাল দিয়েছে`);
+  }
+
+  function scheduleTurn(delay = 750) {
+    window.clearTimeout(botTimer);
+    if (engine.winner || engine.phase === 'over') {
+      showEndGame();
+      return;
+    }
+    if (engine.current === 0 && engine.phase === 'roulette-color') {
+      openColorChoice(null, true);
+      return;
+    }
+    if (engine.players[engine.current].bot) {
+      const grace = engine.unoPending === 0 ? 1900 : delay;
+      botTimer = window.setTimeout(runBotTurn, grace);
+    }
+  }
+
+  function runBotTurn() {
+    if (engine.winner || engine.phase === 'over') return;
+    const player = engine.players[engine.current];
+    if (!player || !player.bot || player.eliminated) return;
+    if (engine.unoPending !== null && engine.unoPending !== player.id) {
+      const caught = engine.catchUno(player.id);
+      if (caught.ok) {
+        showToast(`${engine.players[caught.playerId].name} UNO বলতে ভুলেছে — +২!`);
+        if (engine.winner) { render(); showEndGame(); return; }
+      }
+    }
+    if (engine.phase === 'roulette-color') {
+      const color = chooseBotColor(player);
+      const result = engine.chooseRouletteColor(color, player.id);
+      if (result.ok) afterAction(`${player.name} কালার রুলেটে ${result.drawn}টি তুলেছে`);
+      return;
+    }
+    if (engine.pending) {
+      const stack = engine.legalCards(player.id);
+      if (stack.length) {
+        botPlay(chooseBotCard(stack, player), player);
+      } else {
+        const result = engine.drawPenalty(player.id);
+        if (result.ok) afterAction(`${player.name} ${result.drawn}টি তুলেছে`);
+      }
+      return;
+    }
+    let playable = engine.legalCards(player.id);
+    if (!playable.length) {
+      const drawn = engine.drawUntilPlayable(player.id);
+      if (!drawn.ok || !drawn.playableCard) {
+        afterAction(`${player.name} কার্ড তুলেছে`);
+        return;
+      }
+      playable = [drawn.playableCard];
+    }
+    botPlay(chooseBotCard(playable, player), player);
+  }
+
+  function afterAction(message) {
+    window.clearTimeout(botTimer);
+    render();
+    if (engine.winner !== null || engine.phase === 'over') {
+      showEndGame();
+      return;
+    }
+    if (engine.unoPending === 0) showToast('একটি কার্ড বাকি — UNO বলো!', 3200);
+    else if (message) showToast(message);
+    scheduleTurn(engine.unoPending === 0 ? 1900 : 750);
+  }
+
+  function showEndGame() {
+    const winner = engine.winner === null ? null : engine.players[engine.winner];
+    const didWin = winner && winner.id === 0;
+    showModal(`<h2 class="end-title">${didWin ? 'তুমি জিতেছো!' : winner ? `${winner.name} জিতেছে!` : 'গেম শেষ'}</h2><p>${didWin ? 'দারুণ চাল! প্রতিপক্ষদের হারিয়ে দিয়েছো।' : winner ? `${winner.name} সবার শেষে টিকে গেছে।` : 'সব খেলোয়াড় বাদ পড়েছে।'}<br><span class="muted">আরেক রাউন্ড খেলবে?</span></p><button class="modal-action" id="againBtn">আবার খেলি</button>`, { locked: false });
+    $('againBtn').addEventListener('click', startGame);
+  }
+
+  function startGame() {
+    window.clearTimeout(botTimer);
+    hideModal(true);
+    engine.newGame();
+    render();
+    setStatus('একটি কার্ড বেছে নাও', 'রং, সংখ্যা বা চিহ্ন মিলিয়ে খেলো');
+    showToast('গেম শুরু! তোমার চাল—');
+  }
+
+  function sortHand() {
+    const order = { red: 0, blue: 1, green: 2, yellow: 3, wild: 4 };
+    engine.players[0].hand.sort((a, b) => order[a.color] - order[b.color] || (Number(a.value) - Number(b.value)) || a.value.localeCompare(b.value));
+    renderHand();
+    showToast('কার্ডগুলো রং অনুযায়ী সাজানো হয়েছে');
+  }
+
+  function showRules() {
+    showModal(`<h2>খেলার নিয়ম</h2><p><b>লক্ষ্য:</b> আগে হাতের কার্ড শেষ করো, অথবা শেষ জীবিত খেলোয়াড় থাকো। রং, সংখ্যা বা চিহ্ন মেলাও।</p><p><b>ড্র:</b> চালের কার্ড না থাকলে খেলতে পারা কার্ড না পাওয়া পর্যন্ত তুলো; পেলে সেটি খেলতেই হবে। ড্র-কার্ডে সমান বা বেশি মানের ড্র কার্ড চাপাও, না পারলে পুরো জমা তুলো।</p><p><b>বিশেষ চাল:</b> ৭ = একজনের সঙ্গে হাত বদল; ০ = সবাই দিক অনুযায়ী হাত ঘোরাও; Skip Everyone = আবার তোমার চাল; Discard All = একই রঙের সব কার্ড ফেলে দাও। Color Roulette-এ পরের খেলোয়াড় রং বলে এবং সেই রং না পাওয়া পর্যন্ত তোলে। ২৫ কার্ড হলেই বাদ।</p><button class="modal-action" id="gotIt">বুঝেছি</button>`);
+    $('gotIt').addEventListener('click', () => hideModal());
+  }
+
+  $('drawBtn').addEventListener('click', drawAction);
+  el.deck.addEventListener('click', drawAction);
+  el.sortBtn.addEventListener('click', sortHand);
+  $('newGameBtn').addEventListener('click', () => {
+    if (window.confirm('নতুন গেম শুরু করবে? বর্তমান গেম হারিয়ে যাবে।')) startGame();
+  });
+  $('rulesBtn').addEventListener('click', showRules);
+  $('soundBtn').addEventListener('click', () => {
+    soundOn = !soundOn;
+    $('soundBtn').textContent = soundOn ? '♫' : '♪';
+    $('soundBtn').setAttribute('aria-pressed', String(soundOn));
+    showToast(soundOn ? 'সাউন্ড চালু' : 'সাউন্ড বন্ধ');
+    beep(600);
+  });
+  el.unoBtn.addEventListener('click', () => {
+    if (engine.callUno(0)) {
+      render();
+      showToast('UNO! ঠিক সময়ে বলেছো');
+    }
+  });
+  el.modalClose.addEventListener('click', () => hideModal());
+  el.modal.addEventListener('click', event => {
+    if (event.target === el.modal) hideModal();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') hideModal();
+  });
+
   startGame();
 })();
