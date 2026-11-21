@@ -22,8 +22,10 @@
   let botTimer = 0;
   let toastTimer = 0;
   let soundOn = false;
+  try { soundOn = window.localStorage.getItem('unoNoMercySound') === 'on'; } catch (_) { /* Storage can be disabled in private browsing. */ }
   let audioContext = null;
   let modalLocked = false;
+  let opponentRenderSignature = null;
 
   function showToast(text, duration = 2200) {
     el.message.textContent = text;
@@ -58,21 +60,30 @@
 
   function iconMarkup(value) {
     const icons = {
-      skip: '<svg class="action-symbol" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22"/><path d="M17 47 47 17"/></svg>',
-      reverse: '<svg class="action-symbol reverse-symbol" viewBox="0 0 64 64" aria-hidden="true"><path d="M15 27a19 19 0 0 1 33-8l3 4M49 17v8h-8M49 37a19 19 0 0 1-33 8l-3-4m2 6v-8h8"/></svg>',
-      skipall: '<svg class="action-symbol" viewBox="0 0 64 64" aria-hidden="true"><circle cx="20" cy="23" r="7"/><circle cx="43" cy="23" r="7"/><path d="M8 48c1-9 5-14 12-14s11 5 12 14M32 48c1-9 5-14 11-14 7 0 11 5 12 14M12 51 52 13"/></svg>',
-      discardall: '<svg class="action-symbol bin-symbol" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 18h38M24 18v-6h16v6m8 0-3 34H19l-3-34m13 8v18m10-18v18"/></svg>'
+      skip: '<svg class="action-symbol" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22"/><path d="M16 48 48 16"/></svg>',
+      reverse: '<svg class="action-symbol reverse-symbol" viewBox="0 0 64 64" aria-hidden="true"><path d="M14 27a20 20 0 0 1 35-9l3 4M52 16v9h-9M50 37a20 20 0 0 1-35 9l-3-4M12 48v-9h9"/></svg>',
+      skipall: '<svg class="action-symbol" viewBox="0 0 64 64" aria-hidden="true"><circle cx="20" cy="21" r="7"/><circle cx="44" cy="21" r="7"/><path d="M8 49c1-10 5-15 12-15s11 5 12 15M32 49c1-10 5-15 12-15s11 5 12 15M11 52 53 12"/></svg>',
+      discardall: '<svg class="action-symbol discard-symbol" viewBox="0 0 64 64" aria-hidden="true"><path d="m9 33 13-13 12 12-13 13zM23 43l12-12 12 12-12 12zM16 16h19l6 7M32 10l9 13-14 1"/><path d="M35 19h17v25H35"/></svg>',
+      roulette: '<svg class="action-symbol wild-stack" viewBox="0 0 72 72" aria-hidden="true"><rect x="9" y="22" width="21" height="30" rx="3" fill="#ed252b"/><rect x="21" y="9" width="21" height="30" rx="3" fill="#1474d4"/><rect x="37" y="18" width="21" height="30" rx="3" fill="#19a447"/><rect x="29" y="37" width="21" height="27" rx="3" fill="#f0c51a"/><path d="M35 44c-6-8-16-2-10 4m17-1c-4 8-14 5-11-1" fill="none" stroke="#080808" stroke-width="3" stroke-linecap="round"/></svg>'
     };
-    if (value === '7') return '<span class="special-number seven-swap"><b>7</b><i>⇄</i></span>';
-    if (value === '0') return '<span class="special-number zero-pass"><b>0</b><i>↻</i></span>';
-    if (/^[0-9]$/.test(String(value))) return `<span class="card-value">${value}</span>`;
-    const amounts = { draw2: 2, draw4: 4, draw6: 6, draw10: 10 };
-    if (amounts[value]) return `<span class="face-draw">+${amounts[value]}</span>`;
-    if (icons[value]) return icons[value];
-    if (value === 'wildreverse4') return `<span class="face-combo">${icons.reverse}<b>+4</b></span>`;
-    if (value === 'wild') return '<span class="wild-face">WILD</span>';
-    if (value === 'roulette') return '<span class="roulette-face"><i></i><b>COLOR<br>ROULETTE</b></span>';
-    return `<span class="card-value">${value}</span>`;
+    const cardStack = (count, colored = false) => {
+      const two = [[17, 26], [31, 14]];
+      const three = [[8, 31], [22, 20], [36, 9]];
+      const six = [[5, 22], [15, 9], [25, 22], [35, 9], [13, 36], [32, 34]];
+      const spots = count === 2 ? two : count > 3 ? six : three;
+      return `<svg class="action-symbol draw-stack${colored ? ' colored-stack' : ''}" viewBox="0 0 64 64" aria-hidden="true">${spots.slice(0, count).map(([x, y], index) => `<rect x="${x}" y="${y}" width="19" height="25" rx="2.5" ${colored ? `class="tile-${index}"` : ''}/>`).join('')}</svg>`;
+    };
+    if (value === '7') return '<span class="card-value">7</span>';
+    if (value === '0') return '<span class="card-value">0</span>';
+    if (/^[1-9]$/.test(String(value))) return `<span class="card-value">${value}</span>`;
+    if (value === 'draw2') return cardStack(2);
+    if (value === 'draw4') return cardStack(3);
+    if (value === 'draw6') return cardStack(6, true);
+    if (value === 'draw10') return cardStack(6, true);
+    if (value === 'wildreverse4') return `<span class="face-combo reverse-wild">${icons.roulette}${icons.reverse}</span>`;
+    if (value === 'wild') return icons.roulette;
+    if (value === 'roulette') return `<span class="roulette-face">${icons.roulette}<b>COLOR ROULETTE</b></span>`;
+    return icons[value] || `<span class="card-value">${value}</span>`;
   }
 
 
@@ -86,6 +97,8 @@
     node.type = 'button';
     node.className = `card playing-card ${card.color}${!small && engine.canPlay(card) ? ' playable' : ''}`;
     node.dataset.id = card.id;
+    node.dataset.value = card.value;
+    node.dataset.signature = `${card.id}:${card.color}:${card.value}:${card.chosenColor || ''}`;
     node.setAttribute('aria-label', cardAccessibleName(card));
     if (small) {
       node.tabIndex = -1;
@@ -105,6 +118,15 @@
     const bottomRight = document.createElement('span');
     bottomRight.className = 'card-corner br';
     bottomRight.textContent = label.replace('\n', ' ');
+    if (card.value === '0' || card.value === '7') {
+      const hintText = card.value === '0' ? '↻' : '⇄';
+      [topLeft, bottomRight].forEach(corner => {
+        const hint = document.createElement('i');
+        hint.className = 'corner-action-hint';
+        hint.textContent = hintText;
+        corner.append(hint);
+      });
+    }
     node.append(topLeft, bottomRight);
     if (card.color === 'wild' && card.chosenColor) {
       const chip = document.createElement('span');
@@ -120,6 +142,9 @@
   }
 
   function renderOpponents() {
+    const signature = `${engine.current}|${engine.players.slice(1).map(player => `${player.id}:${player.name}:${player.short}:${player.hand.length}:${player.eliminated}`).join('|')}`;
+    if (signature === opponentRenderSignature) return;
+    opponentRenderSignature = signature;
     for (let index = 1; index < engine.players.length; index += 1) {
       const player = engine.players[index];
       const box = $(`opp-${index}`);
@@ -153,11 +178,17 @@
   }
 
   function renderDiscard() {
+    const visible = engine.discard.slice(-3);
+    const currentCards = [...el.discard.children].map(node => node.dataset.signature);
+    if (currentCards.length === visible.length && visible.every((card, index) => `${card.id}:${card.color}:${card.value}:${card.chosenColor || ''}` === currentCards[index])) return;
     el.discard.replaceChildren();
-    engine.discard.slice(-3).forEach(card => el.discard.append(createCardElement(card, true)));
+    visible.forEach(card => el.discard.append(createCardElement(card, true)));
   }
 
   function renderHand() {
+    const oldCards = new Map([...el.hand.querySelectorAll('.card')].map(node => [node.dataset.signature, node.getBoundingClientRect()]));
+    const handsTransferred = engine.lastEvent?.type === 'rotate' || engine.lastEvent?.swappedWith !== undefined;
+    const deckRect = oldCards.size && !handsTransferred ? el.deck.getBoundingClientRect() : null;
     el.hand.replaceChildren();
     const hand = engine.players[0].hand;
     const center = (hand.length - 1) / 2;
@@ -177,6 +208,33 @@
     } else {
       el.hand.style.removeProperty('--card-overlap');
     }
+    if (!oldCards.size || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const cardNodes = [...el.hand.querySelectorAll('.card')];
+    let newCardIndex = 0;
+    cardNodes.forEach(node => {
+      if (typeof node.animate !== 'function') return;
+      const rect = node.getBoundingClientRect();
+      const previous = oldCards.get(node.dataset.signature);
+      const tilt = node.style.getPropertyValue('--tilt') || '0deg';
+      if (previous) {
+        const dx = previous.left - rect.left;
+        const dy = previous.top - rect.top;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          node.animate([
+            { transform: `translate(${dx}px, ${dy}px) rotate(${tilt})` },
+            { transform: `translate(0, 0) rotate(${tilt})` }
+          ], { duration: 260, easing: 'cubic-bezier(.2,.75,.2,1)' });
+        }
+      } else if (deckRect && rect.width && rect.height) {
+        const dx = deckRect.left + deckRect.width / 2 - (rect.left + rect.width / 2);
+        const dy = deckRect.top + deckRect.height / 2 - (rect.top + rect.height / 2);
+        node.animate([
+          { opacity: 0, transform: `translate(${dx}px, ${dy}px) rotate(0deg)` },
+          { opacity: 1, transform: `translate(0, 0) rotate(${tilt})` }
+        ], { duration: 330, delay: newCardIndex * 18, easing: 'cubic-bezier(.18,.72,.22,1)', fill: 'backwards' });
+        newCardIndex += 1;
+      }
+    });
   }
 
   function isHumanTurn() {
@@ -296,6 +354,8 @@
     el.modal.hidden = false;
     el.modalClose.hidden = locked;
     el.modal.dataset.locked = locked ? 'true' : 'false';
+    const firstAction = el.content.querySelector('button:not([disabled])');
+    (firstAction || el.modalClose).focus({ preventScroll: true });
   }
 
   function hideModal(force = false) {
@@ -566,10 +626,14 @@
     if (window.confirm('নতুন গেম শুরু করবে? বর্তমান গেম হারিয়ে যাবে।')) startGame();
   });
   $('rulesBtn').addEventListener('click', showRules);
-  $('soundBtn').addEventListener('click', () => {
+  const soundButton = $('soundBtn');
+  soundButton.textContent = soundOn ? '♫' : '♪';
+  soundButton.setAttribute('aria-pressed', String(soundOn));
+  soundButton.addEventListener('click', () => {
     soundOn = !soundOn;
-    $('soundBtn').textContent = soundOn ? '♫' : '♪';
-    $('soundBtn').setAttribute('aria-pressed', String(soundOn));
+    soundButton.textContent = soundOn ? '♫' : '♪';
+    soundButton.setAttribute('aria-pressed', String(soundOn));
+    try { window.localStorage.setItem('unoNoMercySound', soundOn ? 'on' : 'off'); } catch (_) { /* Audio preference is optional. */ }
     showToast(soundOn ? 'সাউন্ড চালু' : 'সাউন্ড বন্ধ');
     beep(600);
   });
@@ -585,7 +649,22 @@
     if (event.target === el.modal) hideModal();
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') hideModal();
+    if (event.key === 'Escape') {
+      hideModal();
+      return;
+    }
+    if (el.modal.hidden || event.key !== 'Tab') return;
+    const focusable = [...el.modal.querySelectorAll('button:not([disabled]):not([hidden])')];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 
   startGame();
