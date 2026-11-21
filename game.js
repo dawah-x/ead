@@ -105,7 +105,8 @@
       const box = $(`opp-${index}`);
       box.replaceChildren();
       const seat = document.createElement('div');
-      seat.className = `opponent-card${player.eliminated ? ' opponent-eliminated' : ''}`;
+      const isCurrent = engine.current === player.id && engine.phase !== 'over';
+      seat.className = `opponent-card${player.eliminated ? ' opponent-eliminated' : ''}${isCurrent ? ' opponent-current' : ''}`;
       const avatar = document.createElement('span');
       avatar.className = `avatar bot-${index}`;
       avatar.textContent = player.eliminated ? 'OUT' : player.short;
@@ -158,7 +159,8 @@
     el.direction.textContent = engine.direction === 1 ? '↻' : '↺';
     el.turn.textContent = engine.phase === 'roulette-color' ? `${engine.players[engine.current].name}-এর কালার রুলেট` : `${engine.players[engine.current].name}-এর পালা`;
     el.youTurn.textContent = humanTurn ? 'তোমার পালা' : (engine.current === 0 ? 'রং বেছে নাও' : 'অপেক্ষা');
-    el.indicator.classList.toggle('active', humanTurn);
+    el.indicator.classList.toggle('active', engine.current === 0 && engine.phase !== 'over');
+    document.querySelector('.player-badge').classList.toggle('player-current', engine.current === 0 && engine.phase !== 'over');
     el.drawText.textContent = engine.pending ? `${engine.pending.toLocaleString('bn-BD')}টি তুলো` : 'কার্ড তুলো';
     el.drawBtn.disabled = !humanTurn || (engine.pending === 0 && playable);
     el.deck.disabled = el.drawBtn.disabled;
