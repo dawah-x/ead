@@ -186,53 +186,67 @@
   }
 
   function renderHand() {
-    const oldCards = new Map([...el.hand.querySelectorAll('.card')].map(node => [node.dataset.signature, node.getBoundingClientRect()]));
-    const handsTransferred = engine.lastEvent?.type === 'rotate' || engine.lastEvent?.swappedWith !== undefined;
-    const deckRect = oldCards.size && !handsTransferred ? el.deck.getBoundingClientRect() : null;
-    el.hand.replaceChildren();
     const hand = engine.players[0].hand;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const animateLayout = !reducedMotion && hand.length <= 12;
+    const existing = new Map([...el.hand.querySelectorAll('.card')].map(node => [node.dataset.signature, node]));
+    const previous = new Map();
+    if (animateLayout) existing.forEach((node, signature) => previous.set(signature, node.getBoundingClientRect()));
+    const handsTransferred = engine.lastEvent?.type === 'rotate' || engine.lastEvent?.swappedWith !== undefined;
+    const hasNewCards = hand.some(card => !existing.has(`${card.id}:${card.color}:${card.value}:${card.chosenColor || ''}`));
+    const deckRect = animateLayout && existing.size && hasNewCards && !handsTransferred ? el.deck.getBoundingClientRect() : null;
     const center = (hand.length - 1) / 2;
     const spread = Math.min(8, Math.max(3, hand.length * 0.55));
-    hand.forEach((card, index) => {
-      const face = createCardElement(card);
+    const nodes = hand.map((card, index) => {
+      const signature = `${card.id}:${card.color}:${card.value}:${card.chosenColor || ''}`;
+      const face = existing.get(signature) || createCardElement(card);
+      face.className = `card playing-card ${card.color}${engine.canPlay(card, 0) ? ' playable' : ''}`;
       const tilt = center === 0 ? 0 : ((index - center) / center) * spread;
       face.style.setProperty('--tilt', `${tilt.toFixed(1)}deg`);
-      el.hand.append(face);
+      return face;
     });
+    let cursor = el.hand.firstElementChild;
+    nodes.forEach(node => {
+      if (node === cursor) cursor = cursor.nextElementSibling;
+      else el.hand.insertBefore(node, cursor);
+    });
+    while (cursor) {
+      const next = cursor.nextElementSibling;
+      cursor.remove();
+      cursor = next;
+    }
     const firstCard = el.hand.firstElementChild;
     if (hand.length > 7 && firstCard) {
-      const cardWidth = firstCard.getBoundingClientRect().width || 84;
+      const cardWidth = firstCard.offsetWidth || 84;
       const available = Math.max(240, el.hand.clientWidth - 20);
       const spacing = Math.max(cardWidth * 0.42, Math.min(cardWidth - 14, (available - cardWidth) / (hand.length - 1)));
       el.hand.style.setProperty('--card-overlap', `${Math.max(0, cardWidth - spacing)}px`);
     } else {
       el.hand.style.removeProperty('--card-overlap');
     }
-    if (!oldCards.size || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const cardNodes = [...el.hand.querySelectorAll('.card')];
-    let newCardIndex = 0;
-    cardNodes.forEach(node => {
-      if (typeof node.animate !== 'function') return;
+    if (!animateLayout || !existing.size || typeof nodes[0]?.animate !== 'function') return;
+    let dealtCount = 0;
+    nodes.forEach(node => {
       const rect = node.getBoundingClientRect();
-      const previous = oldCards.get(node.dataset.signature);
+      const oldRect = previous.get(node.dataset.signature);
       const tilt = node.style.getPropertyValue('--tilt') || '0deg';
-      if (previous) {
-        const dx = previous.left - rect.left;
-        const dy = previous.top - rect.top;
+      if (oldRect) {
+        const dx = oldRect.left - rect.left;
+        const dy = oldRect.top - rect.top;
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
           node.animate([
             { transform: `translate(${dx}px, ${dy}px) rotate(${tilt})` },
             { transform: `translate(0, 0) rotate(${tilt})` }
-          ], { duration: 260, easing: 'cubic-bezier(.2,.75,.2,1)' });
+          ], { duration: 210, easing: 'cubic-bezier(.2,.75,.2,1)' });
         }
-      } else if (deckRect && rect.width && rect.height) {
+      } else if (deckRect && dealtCount < 6 && rect.width && rect.height) {
         const dx = deckRect.left + deckRect.width / 2 - (rect.left + rect.width / 2);
         const dy = deckRect.top + deckRect.height / 2 - (rect.top + rect.height / 2);
         node.animate([
           { opacity: 0, transform: `translate(${dx}px, ${dy}px) rotate(0deg)` },
           { opacity: 1, transform: `translate(0, 0) rotate(${tilt})` }
-        ], { duration: 330, delay: newCardIndex * 18, easing: 'cubic-bezier(.18,.72,.22,1)', fill: 'backwards' });
-        newCardIndex += 1;
+        ], { duration: 260, delay: dealtCount * 16, easing: 'cubic-bezier(.18,.72,.22,1)', fill: 'backwards' });
+        dealtCount += 1;
       }
     });
   }
@@ -284,14 +298,14 @@
       const dy = to.top - from.top;
       const sx = to.width / from.width;
       const sy = to.height / from.height;
-      node.style.transition = 'transform 560ms cubic-bezier(.18,.72,.22,1), opacity 560ms ease';
+      node.style.transition = 'transform 420ms cubic-bezier(.18,.72,.22,1), opacity 420ms ease';
       node.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy}) rotate(1deg)`;
       node.style.opacity = '.96';
     }));
     window.setTimeout(() => {
       target.style.visibility = '';
       node.remove();
-    }, 610);
+    }, 470);
     return true;
   }
 
@@ -505,7 +519,7 @@
     if (result.ok) afterAction(`${player.name} চাল দিয়েছে`, flight);
   }
 
-  function scheduleTurn(delay = 750) {
+  function scheduleTurn(delay = 500) {
     window.clearTimeout(botTimer);
     if (engine.winner || engine.phase === 'over') {
       showEndGame();
@@ -535,7 +549,7 @@
     render();
     showToast('UNO বলতে ভুলেছো — প্রতিপক্ষ +২ দিল!');
     if (engine.winner) showEndGame();
-    else scheduleTurn(650);
+    else scheduleTurn(420);
   }
 
   function runBotTurn() {
@@ -582,13 +596,13 @@
     render();
     const animating = animateCardFlight(flight);
     if (engine.winner !== null || engine.phase === 'over') {
-      if (animating) window.setTimeout(showEndGame, 620);
+      if (animating) window.setTimeout(showEndGame, 490);
       else showEndGame();
       return;
     }
     if (engine.unoPending === 0) showToast('একটি কার্ড বাকি — UNO বলো!', 3200);
     else if (message) showToast(message);
-    scheduleTurn(engine.unoPending === 0 ? 1900 : (animating ? 850 : 750));
+    scheduleTurn(engine.unoPending === 0 ? 1900 : (animating ? 520 : 500));
   }
 
   function showEndGame() {
