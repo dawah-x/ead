@@ -80,3 +80,16 @@ html,body{height:100%;overflow-x:hidden}body{min-height:100dvh}.game-shell{heigh
 .overlay:not([hidden]) .modal-card{animation:modal-arrive .26s cubic-bezier(.18,.72,.22,1) both}
 @keyframes modal-arrive{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(prefers-reduced-motion:reduce){.overlay:not([hidden]) .modal-card{animation:none}.playing-card{transition:none}}
+
+/* Low-paint fallback for lower-powered phones: keep the card art, drop per-card texture/filter layers. */
+.playing-card{isolation:auto;box-shadow:0 3px 8px #0008,inset 0 0 0 1px #ffffff35,inset 0 -3px 6px #0002}
+.playing-card:after{content:none;display:none}
+.playing-card.playable{box-shadow:0 3px 8px #0008,0 0 0 1px #f5d77b,inset 0 0 0 1px #ffffff35}
+.action-symbol,.draw-stack,.wild-stack,.card-flight{filter:none}
+.hand-panel{backdrop-filter:none}
+.table-texture{mix-blend-mode:normal;opacity:.055}
+@media(max-width:760px){.playing-card{box-shadow:0 2px 5px #0009,inset 0 0 0 1px #ffffff30}.playing-card.playable{box-shadow:0 2px 5px #0009,0 0 0 1px #f5d77b,inset 0 0 0 1px #ffffff30}.table-felt{box-shadow:inset 0 0 0 2px #b5925b55,inset 0 0 26px #00190f70}.table-rim{box-shadow:0 12px 25px #0008,inset 0 2px 3px #e8c58a55}}
+.playing-card.red{background-image:linear-gradient(145deg,#f33b32,#c91419)}
+.playing-card.blue{background-image:linear-gradient(145deg,#287bc5,#06477f)}
+.playing-card.green{background-image:linear-gradient(145deg,#34a737,#087222)}
+.playing-card.yellow{background-image:linear-gradient(145deg,#ffd21a,#e5a900)}
