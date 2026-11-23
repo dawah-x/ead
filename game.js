@@ -26,6 +26,8 @@
   let audioContext = null;
   let modalLocked = false;
   let opponentRenderSignature = null;
+  const deviceInfo = window.navigator || {};
+  const lowPowerMode = Boolean(deviceInfo.connection?.saveData || (deviceInfo.hardwareConcurrency > 0 && deviceInfo.hardwareConcurrency <= 4) || (deviceInfo.deviceMemory > 0 && deviceInfo.deviceMemory <= 4));
 
   function showToast(text, duration = 2200) {
     el.message.textContent = text;
@@ -188,7 +190,7 @@
   function renderHand() {
     const hand = engine.players[0].hand;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const animateLayout = !reducedMotion && hand.length <= 12;
+    const animateLayout = !reducedMotion && !lowPowerMode && window.innerWidth > 760 && hand.length <= 12;
     const existing = new Map([...el.hand.querySelectorAll('.card')].map(node => [node.dataset.signature, node]));
     const previous = new Map();
     if (animateLayout) existing.forEach((node, signature) => previous.set(signature, node.getBoundingClientRect()));
@@ -275,7 +277,7 @@
   }
 
   function animateCardFlight(flight) {
-    if (!flight || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
+    if (!flight || lowPowerMode || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
     const target = el.discard.querySelector('.card:last-child');
     if (!target) return false;
     const from = flight.from;
@@ -298,14 +300,14 @@
       const dy = to.top - from.top;
       const sx = to.width / from.width;
       const sy = to.height / from.height;
-      node.style.transition = 'transform 420ms cubic-bezier(.18,.72,.22,1), opacity 420ms ease';
+      node.style.transition = 'transform 300ms cubic-bezier(.18,.72,.22,1), opacity 300ms ease';
       node.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy}) rotate(1deg)`;
       node.style.opacity = '.96';
     }));
     window.setTimeout(() => {
       target.style.visibility = '';
       node.remove();
-    }, 470);
+    }, 340);
     return true;
   }
 
@@ -519,7 +521,7 @@
     if (result.ok) afterAction(`${player.name} চাল দিয়েছে`, flight);
   }
 
-  function scheduleTurn(delay = 500) {
+  function scheduleTurn(delay = 350) {
     window.clearTimeout(botTimer);
     if (engine.winner || engine.phase === 'over') {
       showEndGame();
@@ -549,7 +551,7 @@
     render();
     showToast('UNO বলতে ভুলেছো — প্রতিপক্ষ +২ দিল!');
     if (engine.winner) showEndGame();
-    else scheduleTurn(420);
+    else scheduleTurn(320);
   }
 
   function runBotTurn() {
@@ -596,13 +598,13 @@
     render();
     const animating = animateCardFlight(flight);
     if (engine.winner !== null || engine.phase === 'over') {
-      if (animating) window.setTimeout(showEndGame, 490);
+      if (animating) window.setTimeout(showEndGame, 360);
       else showEndGame();
       return;
     }
     if (engine.unoPending === 0) showToast('একটি কার্ড বাকি — UNO বলো!', 3200);
     else if (message) showToast(message);
-    scheduleTurn(engine.unoPending === 0 ? 1900 : (animating ? 520 : 500));
+    scheduleTurn(engine.unoPending === 0 ? 1900 : (animating ? 380 : 350));
   }
 
   function showEndGame() {
@@ -656,6 +658,7 @@
       window.clearTimeout(botTimer);
       render();
       showToast('UNO! ঠিক সময়ে বলেছো');
+      scheduleTurn(350);
     }
   });
   el.modalClose.addEventListener('click', () => hideModal());
