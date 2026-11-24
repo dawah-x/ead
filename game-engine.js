@@ -322,7 +322,7 @@
       return this.result(true, { drawn, playableCard: null });
     }
 
-    drawWildCard(playerId = this.current) {
+    drawPowerCard(playerId = this.current) {
       const player = this.players[playerId];
       if (this.phase !== 'turn' || this.pending || this.winner || playerId !== this.current) {
         return this.result(false, { error: 'cannot-draw' });
@@ -338,8 +338,12 @@
         this.lastEvent = { type: 'draw', playerId, drawn: 0 };
         return this.result(true, { drawn: 0, playableCard: null });
       }
-      card.color = 'wild';
-      card.value = 'wild';
+      const powerValue = ['draw4', 'draw6', 'draw10'][Math.floor(this.random() * 3)];
+      let activeColor = this.topCard && this.topCard.color === 'wild' ? this.topCard.chosenColor : this.topCard && this.topCard.color;
+      if (!COLORS.includes(activeColor)) activeColor = COLORS[Math.floor(this.random() * COLORS.length)];
+      if (this.topCard && this.topCard.color === 'wild' && !this.topCard.chosenColor) this.topCard.chosenColor = activeColor;
+      card.value = powerValue;
+      card.color = powerValue === 'draw4' ? activeColor : 'wild';
       delete card.chosenColor;
       player.hand.push(card);
       if (player.hand.length >= 25) {
