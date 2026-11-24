@@ -245,18 +245,20 @@ test('a player who gets an immediate extra turn must call UNO before acting agai
   assert.equal(engine.playCard(remaining.id).ok, true);
 });
 
-test('a regular human draw supplies a Wild and forces it to be played', () => {
-  const engine = makeEngine();
-  const drawn = card('yellow', '9', 'converted-to-wild');
-  setTable(engine, { hands: [[card('blue', '2')], [card('green', '3')], [card('yellow', '4')], [card('blue', '6')]], top: card('red', '5'), deck: [drawn] });
-  const result = engine.drawWildCard(0);
-  assert.equal(result.ok, true);
-  assert.equal(result.drawn, 1);
-  assert.equal(result.playableCard.id, drawn.id);
-  assert.equal(result.playableCard.color, 'wild');
-  assert.equal(result.playableCard.value, 'wild');
-  assert.equal(engine.mustPlayCardId, drawn.id);
-  assert.deepEqual(engine.legalCards(0).map(item => item.id), [drawn.id]);
+test('a regular player draw supplies +4, +6, or +10 and forces it to be played', () => {
+  for (const [randomValue, expected] of [[0.01, 'draw4'], [0.4, 'draw6'], [0.9, 'draw10']]) {
+    const engine = new NoMercyEngine({ random: () => randomValue });
+    const drawn = card('yellow', '9', `converted-${expected}`);
+    setTable(engine, { hands: [[card('blue', '2')], [card('green', '3')], [card('yellow', '4')], [card('blue', '6')]], top: card('red', '5'), deck: [drawn] });
+    const result = engine.drawPowerCard(0);
+    assert.equal(result.ok, true);
+    assert.equal(result.drawn, 1);
+    assert.equal(result.playableCard.id, drawn.id);
+    assert.equal(result.playableCard.value, expected);
+    assert.equal(result.playableCard.color, expected === 'draw4' ? 'red' : 'wild');
+    assert.equal(engine.mustPlayCardId, drawn.id);
+    assert.deepEqual(engine.legalCards(0).map(item => item.id), [drawn.id]);
+  }
 });
 
 test('drawing until playable forces the newly drawn matching card to be played', () => {
