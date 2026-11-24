@@ -322,6 +322,37 @@
       return this.result(true, { drawn, playableCard: null });
     }
 
+    drawWildCard(playerId = this.current) {
+      const player = this.players[playerId];
+      if (this.phase !== 'turn' || this.pending || this.winner || playerId !== this.current) {
+        return this.result(false, { error: 'cannot-draw' });
+      }
+      if (!player || player.eliminated) return this.result(false, { error: 'player-eliminated' });
+      if (this.unoPending === playerId) return this.result(false, { error: 'must-call-uno' });
+      if (this.legalCards(playerId).length) return this.result(false, { error: 'playable-card-in-hand' });
+
+      const card = this.drawOne();
+      if (!card) {
+        this.checkWinner();
+        if (!this.winner) this.moveCurrent(1);
+        this.lastEvent = { type: 'draw', playerId, drawn: 0 };
+        return this.result(true, { drawn: 0, playableCard: null });
+      }
+      card.color = 'wild';
+      card.value = 'wild';
+      delete card.chosenColor;
+      player.hand.push(card);
+      if (player.hand.length >= 25) {
+        this.eliminate(player);
+        this.checkWinner();
+        this.lastEvent = { type: 'elimination', playerId, reason: 'mercy' };
+        return this.result(true, { drawn: 1, playableCard: null, eliminated: true });
+      }
+      this.mustPlayCardId = card.id;
+      this.lastEvent = { type: 'draw-wild', playerId, card };
+      return this.result(true, { drawn: 1, playableCard: card });
+    }
+
     drawPenalty(playerId = this.current) {
       if (this.phase !== 'turn' || !this.pending || playerId !== this.current || this.winner) {
         return this.result(false, { error: 'no-pending-draw' });
